@@ -9,6 +9,7 @@ import type {
   DashboardSummaryDTO,
   AnalyticsDTO,
   TransactionFilters,
+  DebtDTO,
 } from "@/lib/types";
 
 export const queryKeys = {
@@ -20,6 +21,7 @@ export const queryKeys = {
   insights: ["insights"] as const,
   dashboard: ["dashboard"] as const,
   analytics: ["analytics"] as const,
+  debts: ["debts"] as const,
 };
 
 export function useAccounts() {
@@ -92,6 +94,13 @@ export function useAnalytics() {
   });
 }
 
+export function useDebts() {
+  return useQuery({
+    queryKey: queryKeys.debts,
+    queryFn: () => fetcher<DebtDTO[]>("/api/debts"),
+  });
+}
+
 export function useInvalidate() {
   const client = useQueryClient();
   return {
@@ -103,6 +112,7 @@ export function useInvalidate() {
     insights: () => client.invalidateQueries({ queryKey: queryKeys.insights }),
     dashboard: () => client.invalidateQueries({ queryKey: queryKeys.dashboard }),
     analytics: () => client.invalidateQueries({ queryKey: queryKeys.analytics }),
+    debts: () => client.invalidateQueries({ queryKey: queryKeys.debts }),
     all: () => client.invalidateQueries(),
   };
 }

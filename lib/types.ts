@@ -1,6 +1,8 @@
 export type AccountType = "cash" | "bank" | "credit_card" | "savings" | "other";
 export type TransactionType = "expense" | "income" | "transfer" | "atm_withdrawal";
 export type CategoryKind = "expense" | "income";
+export type DebtType = "installment" | "debt" | "credit_card";
+export type DebtStatus = "paid_off" | "paid" | "overdue" | "due_soon" | "upcoming";
 
 export interface AccountDTO {
   _id: string;
@@ -85,6 +87,7 @@ export interface DashboardSummaryDTO {
   recentTransactions: TransactionDTO[];
   topBudgets: BudgetStatusDTO[];
   topGoals: GoalDTO[];
+  upcomingDebts: DebtDTO[];
 }
 
 export interface CategoryBreakdownItemDTO {
@@ -105,6 +108,23 @@ export interface MonthlyTrendItemDTO {
 export interface AnalyticsDTO {
   categoryBreakdown: CategoryBreakdownItemDTO[];
   trend: MonthlyTrendItemDTO[];
+}
+
+export interface DebtDTO {
+  _id: string;
+  name: string;
+  type: DebtType;
+  totalAmount?: number;
+  remainingAmount: number;
+  monthlyPayment: number;
+  dueDay: number;
+  linkedAccountId?: RefLite;
+  lastPaidMonth?: string;
+  icon: string;
+  color: string;
+  isPaidOff: boolean;
+  isArchived: boolean;
+  status: DebtStatus;
 }
 
 export interface TransactionFilters {

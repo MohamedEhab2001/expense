@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { formatCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
@@ -71,6 +72,28 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground">Total balance</p>
         <p className="text-3xl font-semibold tabular-nums">{formatCents(data.totalBalance)}</p>
       </header>
+
+      {data.upcomingDebts.length > 0 && (
+        <Link
+          href="/debts"
+          className="flex flex-col gap-2 rounded-xl border border-l-4 border-warning bg-card p-3"
+        >
+          <div className="flex items-center gap-2 text-warning">
+            <AlertTriangle className="size-4" />
+            <p className="text-sm font-medium">
+              {data.upcomingDebts.length} payment{data.upcomingDebts.length > 1 ? "s" : ""} due
+            </p>
+          </div>
+          {data.upcomingDebts.map((d) => (
+            <p key={d._id} className="text-xs text-muted-foreground">
+              <span className={d.status === "overdue" ? "font-medium text-destructive" : "font-medium text-warning"}>
+                {d.status === "overdue" ? "Overdue" : `Due day ${d.dueDay}`}
+              </span>{" "}
+              — {d.name} · {formatCents(d.monthlyPayment)}
+            </p>
+          ))}
+        </Link>
+      )}
 
       {data.accounts.length > 0 && (
         <section className="flex gap-3 overflow-x-auto pb-1">

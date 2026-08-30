@@ -1,0 +1,139 @@
+"use client";
+
+import { useState } from "react";
+import { MoreVertical, Pencil, Archive, Check } from "lucide-react";
+import { getIcon } from "@/lib/icon-map";
+import { formatCents } from "@/lib/utils/currency";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { postJSON } from "@/lib/fetcher";
+import type { DebtDTO } from "@/lib/types";
+import { toast } from "sonner";
+
+const TYPE_LABELS = {
+  installment: "Installment",
+  debt: "Debt",
+  credit_card: "Credit Card",
+};
+
+function statusInfo(debt: DebtDTO) {
+  switch (debt.status) {
+    case "paid_off":
+      return { label: "Paid off", className: "bg-secondary text-muted-foreground" };
+    case "paid":
+      return { label: "Paid this month", className: "bg-success/15 text-success" };
+    case "overdue":
+      return { label: "Overdue", className: "bg-destructive/15 text-destructive" };
+    case "due_soon":
+      return { label: `Due day ${debt.dueDay}`, className: "bg-warning/15 text-warning" };
+    default:
+      return { label: `Due day ${debt.dueDay}`, className: "bg-secondary text-muted-foreground" };
+  }
+}
+
+export function DebtCard({
+  debt,
+  onEdit,
+  onChanged,
+}: {
+  debt: DebtDTO;
+  onEdit: () => void;
+  onChanged: () => void;
+}) {
+  const [paying, setPaying] = useState(false);
+  const Icon = getIcon(debt.icon);
+  const status = statusInfo(debt);
+  const progress =
+    debt.totalAmount && debt.totalAmount > 0
+      ? Math.min(100, Math.round(((debt.totalAmount - debt.remainingAmount) / debt.totalAmount) * 100))
+      : null;
+  const canPay = debt.status !== "paid" && debt.status !== "paid_off";
+
+  async function archive() {
+    try {
+      await postJSON(`/api/debts/${debt._id}`, {}, "DELETE");
+      toast.success("Archived");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  async function markPaid() {
+    setPaying(true);
+    try {
+      await postJSON(`/api/debts/${debt._id}/pay`, {}, "POST");
+      toast.success("Marked as paid");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <div
+          className="flex size-10 shrink-0 items-center justify-center rounded-full"
+          style={{ backgroundColor: `${debt.color}26`, color: debt.color }}
+        >
+          <Icon className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{debt.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {TYPE_LABELS[debt.type]} · {formatCents(debt.monthlyPayment)}/mo
+            {debt.linkedAccountId ? ` · from ${debt.linkedAccountId.name}` : ""}
+          </p>
+        </div>
+        <Badge variant="outline" className={`border-transparent ${status.className}`}>
+          {status.label}
+        </Badge>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex size-7 items-center justify-center rounded-full text-muted-foreground active:bg-secondary">
+            <MoreVertical className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="size-4" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={archive}>
+              <Archive className="size-4" /> Archive
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {progress !== null && (
+        <div className="flex flex-col gap-1">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {formatCents(debt.remainingAmount)} left of {formatCents(debt.totalAmount!)}
+          </p>
+        </div>
+      )}
+      {progress === null && (
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {formatCents(debt.remainingAmount)} balance
+        </p>
+      )}
+
+      {canPay && (
+        <Button size="sm" variant="outline" onClick={markPaid} disabled={paying}>
+          <Check className="size-4" /> {paying ? "Marking..." : "Mark this month paid"}
+        </Button>
+      )}
+    </div>
+  );
+}
