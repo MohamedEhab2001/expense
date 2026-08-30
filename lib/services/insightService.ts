@@ -2,7 +2,7 @@ import "server-only";
 import crypto from "node:crypto";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
-import { anthropic, CLAUDE_MODEL } from "@/lib/anthropic";
+import { openai, AI_MODEL } from "@/lib/openai";
 import AIInsight from "@/models/AIInsight";
 import Account from "@/models/Account";
 import Transaction from "@/models/Transaction";
@@ -124,40 +124,38 @@ export async function generateInsight() {
     }
   }
 
-  const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
+  const response = await openai.chat.completions.create({
+    model: AI_MODEL,
     max_tokens: 2048,
-    system: SYSTEM_PROMPT,
+    response_format: { type: "json_object" },
     messages: [
+      { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Analyze this financial data and respond with ONLY a JSON object matching this shape (no markdown, no prose outside the JSON): {"summary": string, "insights": [{"type": "spending_pattern"|"budget_adherence"|"savings_feasibility"|"suggestion", "title": string, "body": string, "severity": "info"|"warning"|"positive"}]}.\n\nData:\n${JSON.stringify(context)}`,
+        content: `Analyze this financial data and respond with ONLY a JSON object matching this shape: {"summary": string, "insights": [{"type": "spending_pattern"|"budget_adherence"|"savings_feasibility"|"suggestion", "title": string, "body": string, "severity": "info"|"warning"|"positive"}]}.\n\nData:\n${JSON.stringify(context)}`,
       },
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Claude did not return a text response");
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI did not return a response");
   }
 
-  const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Could not find JSON in Claude's response");
-
-  const parsed = insightSchema.parse(JSON.parse(jsonMatch[0]));
+  const parsed = insightSchema.parse(JSON.parse(content));
 
   const { start, end } = monthRange(monthKey());
   const created = await AIInsight.create({
     generatedAt: new Date(),
     periodStart: start,
     periodEnd: end,
-    model: CLAUDE_MODEL,
+    model: AI_MODEL,
     summary: parsed.summary,
     insights: parsed.insights,
     contextHash,
     tokenUsage: {
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
     },
   });
 
