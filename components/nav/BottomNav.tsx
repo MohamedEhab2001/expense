@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Receipt, Wallet, Plus, Menu } from "lucide-react";
@@ -28,6 +29,11 @@ const MORE_LINKS = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -48,7 +54,7 @@ export function BottomNav() {
           <NavItem key={tab.href} tab={tab} active={pathname === tab.href} />
         ))}
 
-        <Sheet>
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
           <SheetTrigger
             aria-label="More"
             className="flex flex-1 flex-col items-center gap-1 py-2 text-muted-foreground transition-colors active:text-foreground"

@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import useSWR from "swr";
 import { format } from "date-fns";
 import { Sparkles } from "lucide-react";
-import { fetcher } from "@/lib/fetcher";
 import { generateInsightAction } from "@/lib/actions/insights";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { InsightCard } from "@/components/insights/InsightCard";
+import { useInsightsHistory, useInvalidate } from "@/lib/queries";
 import type { AIInsightDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export default function InsightsPage() {
-  const { data: history, mutate, isLoading } = useSWR<AIInsightDTO[]>("/api/insights", fetcher);
+  const { data: history, isLoading } = useInsightsHistory();
+  const invalidate = useInvalidate();
   const [pending, startTransition] = useTransition();
   const [latest, setLatest] = useState<AIInsightDTO | null>(null);
 
@@ -25,7 +25,7 @@ export default function InsightsPage() {
       const result = await generateInsightAction();
       if (result.ok) {
         setLatest(result.insight);
-        mutate();
+        invalidate.insights();
       } else {
         toast.error(result.error);
       }

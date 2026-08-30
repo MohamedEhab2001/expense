@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import { Plus, Tags, Pencil, Archive } from "lucide-react";
-import { fetcher, postJSON } from "@/lib/fetcher";
+import { postJSON } from "@/lib/fetcher";
 import { getIcon } from "@/lib/icon-map";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { CategoryForm } from "@/components/categories/CategoryForm";
 import {
@@ -15,11 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical } from "lucide-react";
+import { useCategories, useInvalidate } from "@/lib/queries";
 import type { CategoryDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export default function CategoriesPage() {
-  const { data: categories, mutate, isLoading } = useSWR<CategoryDTO[]>("/api/categories", fetcher);
+  const { data: categories, isLoading } = useCategories();
+  const invalidate = useInvalidate();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CategoryDTO | undefined>(undefined);
 
@@ -30,7 +32,7 @@ export default function CategoriesPage() {
     try {
       await postJSON(`/api/categories/${id}`, {}, "DELETE");
       toast.success("Category archived");
-      mutate();
+      invalidate.all();
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -97,6 +99,15 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
+      {isLoading && (
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+        </div>
+      )}
+
       {!isLoading && categories?.length === 0 && (
         <EmptyState icon={Tags} title="No categories" description="Add your first category to get started." />
       )}
@@ -109,7 +120,7 @@ export default function CategoriesPage() {
         category={editing}
         open={formOpen}
         onOpenChange={setFormOpen}
-        onSaved={() => mutate()}
+        onSaved={() => invalidate.all()}
       />
     </div>
   );

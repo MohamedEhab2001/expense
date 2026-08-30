@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import {
   Dialog,
   DialogContent,
@@ -21,9 +20,9 @@ import {
 } from "@/components/ui/select";
 import { IconPicker, ColorPicker } from "@/components/shared/IconColorPicker";
 import { GOAL_ICON_OPTIONS } from "@/lib/icon-map";
-import { fetcher, postJSON } from "@/lib/fetcher";
+import { postJSON } from "@/lib/fetcher";
+import { useAccounts } from "@/lib/queries";
 import { toCents } from "@/lib/utils/currency";
-import type { AccountDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export function GoalForm({
@@ -35,7 +34,7 @@ export function GoalForm({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
-  const { data: accounts } = useSWR<AccountDTO[]>("/api/accounts", fetcher);
+  const { data: accounts } = useAccounts();
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [targetDate, setTargetDate] = useState("");

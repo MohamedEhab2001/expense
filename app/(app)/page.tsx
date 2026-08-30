@@ -1,30 +1,54 @@
 "use client";
 
-import useSWR from "swr";
 import Link from "next/link";
-import { fetcher } from "@/lib/fetcher";
 import { formatCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
+import { Skeleton } from "@/components/ui/skeleton";
 import { postJSON } from "@/lib/fetcher";
+import { useDashboardSummary, useInvalidate } from "@/lib/queries";
 import { toast } from "sonner";
-import type { DashboardSummaryDTO } from "@/lib/types";
+
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 px-4 pt-6">
+      <header className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-9 w-40" />
+      </header>
+      <div className="flex gap-3">
+        <Skeleton className="h-24 w-36 rounded-xl" />
+        <Skeleton className="h-24 w-36 rounded-xl" />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
-  const { data, mutate, isLoading } = useSWR<DashboardSummaryDTO>("/api/dashboard/summary", fetcher);
+  const { data, isLoading } = useDashboardSummary();
+  const invalidate = useInvalidate();
 
   async function removeTransaction(id: string) {
     try {
       await postJSON(`/api/transactions/${id}`, {}, "DELETE");
       toast.success("Transaction deleted");
-      mutate();
+      invalidate.all();
     } catch (e) {
       toast.error((e as Error).message);
     }
   }
 
-  if (!isLoading && (!data || data.accounts.length === 0)) {
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (!data || data.accounts.length === 0) {
     return (
       <div className="flex flex-col gap-6 px-4 pt-6">
         <header>
@@ -45,10 +69,10 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-6 px-4 pt-6">
       <header>
         <p className="text-sm text-muted-foreground">Total balance</p>
-        <p className="text-3xl font-semibold tabular-nums">{formatCents(data?.totalBalance ?? 0)}</p>
+        <p className="text-3xl font-semibold tabular-nums">{formatCents(data.totalBalance)}</p>
       </header>
 
-      {data && data.accounts.length > 0 && (
+      {data.accounts.length > 0 && (
         <section className="flex gap-3 overflow-x-auto pb-1">
           {data.accounts.map((a) => {
             const Icon = getIcon(a.icon);
@@ -72,7 +96,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {data && data.topBudgets.length > 0 && (
+      {data.topBudgets.length > 0 && (
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">Budgets</p>
@@ -86,7 +110,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {data && data.topGoals.length > 0 && (
+      {data.topGoals.length > 0 && (
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">Savings goals</p>
@@ -120,11 +144,11 @@ export default function DashboardPage() {
             See all
           </Link>
         </div>
-        {data?.recentTransactions.length === 0 && (
+        {data.recentTransactions.length === 0 && (
           <p className="py-4 text-center text-sm text-muted-foreground">No transactions yet.</p>
         )}
         <div className="divide-y divide-border">
-          {data?.recentTransactions.map((tx) => (
+          {data.recentTransactions.map((tx) => (
             <TransactionRow key={tx._id} transaction={tx} onDelete={() => removeTransaction(tx._id)} />
           ))}
         </div>

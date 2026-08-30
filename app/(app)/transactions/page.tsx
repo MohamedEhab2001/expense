@@ -1,12 +1,13 @@
 "use client";
 
-import useSWR from "swr";
 import { format, isToday, isYesterday } from "date-fns";
 import { Receipt } from "lucide-react";
-import { fetcher, postJSON } from "@/lib/fetcher";
+import { postJSON } from "@/lib/fetcher";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTransactions, useInvalidate } from "@/lib/queries";
 import type { TransactionDTO } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -18,16 +19,14 @@ function groupLabel(dateStr: string) {
 }
 
 export default function TransactionsPage() {
-  const { data: transactions, mutate, isLoading } = useSWR<TransactionDTO[]>(
-    "/api/transactions?limit=100",
-    fetcher
-  );
+  const { data: transactions, isLoading } = useTransactions(100);
+  const invalidate = useInvalidate();
 
   async function remove(id: string) {
     try {
       await postJSON(`/api/transactions/${id}`, {}, "DELETE");
       toast.success("Transaction deleted");
-      mutate();
+      invalidate.all();
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -42,6 +41,15 @@ export default function TransactionsPage() {
   return (
     <div className="flex flex-col gap-4 px-4 pt-6">
       <h1 className="text-xl font-semibold">Activity</h1>
+
+      {isLoading && (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      )}
 
       {!isLoading && transactions?.length === 0 && (
         <EmptyState

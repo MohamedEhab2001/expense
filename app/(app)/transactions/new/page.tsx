@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
 import { ArrowLeftRight, Banknote, TrendingDown, TrendingUp } from "lucide-react";
-import { fetcher, postJSON } from "@/lib/fetcher";
+import { postJSON } from "@/lib/fetcher";
 import { toCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { AccountDTO, CategoryDTO, TransactionType } from "@/lib/types";
+import { useAccounts, useCategories, useInvalidate } from "@/lib/queries";
+import type { TransactionType } from "@/lib/types";
 import { toast } from "sonner";
 
 const TYPES: { value: TransactionType; label: string; icon: typeof TrendingDown }[] = [
@@ -30,8 +31,9 @@ const TYPES: { value: TransactionType; label: string; icon: typeof TrendingDown 
 
 export default function NewTransactionPage() {
   const router = useRouter();
-  const { data: accounts } = useSWR<AccountDTO[]>("/api/accounts", fetcher);
-  const { data: categories } = useSWR<CategoryDTO[]>("/api/categories", fetcher);
+  const { data: accounts, isLoading: accountsLoading } = useAccounts();
+  const { data: categories } = useCategories();
+  const invalidate = useInvalidate();
 
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
@@ -70,8 +72,8 @@ export default function NewTransactionPage() {
         note: note.trim() || undefined,
       });
       toast.success("Transaction saved");
+      invalidate.all();
       router.push("/transactions");
-      router.refresh();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -85,7 +87,13 @@ export default function NewTransactionPage() {
     <div className="flex flex-col gap-5 px-4 pt-6 pb-4">
       <h1 className="text-xl font-semibold">Add transaction</h1>
 
-      {noAccounts ? (
+      {accountsLoading ? (
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-10 w-full rounded-xl" />
+        </div>
+      ) : noAccounts ? (
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           Add an account first before logging transactions.
         </p>

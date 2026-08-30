@@ -1,19 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import { Plus, Wallet } from "lucide-react";
-import { fetcher, postJSON } from "@/lib/fetcher";
+import { postJSON } from "@/lib/fetcher";
 import { formatCents } from "@/lib/utils/currency";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AccountCard } from "@/components/accounts/AccountCard";
 import { AccountForm } from "@/components/accounts/AccountForm";
+import { useAccounts, useInvalidate } from "@/lib/queries";
 import type { AccountDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export default function AccountsPage() {
-  const { data: accounts, mutate, isLoading } = useSWR<AccountDTO[]>("/api/accounts", fetcher);
+  const { data: accounts, isLoading } = useAccounts();
+  const invalidate = useInvalidate();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccountDTO | undefined>(undefined);
 
@@ -23,7 +25,7 @@ export default function AccountsPage() {
     try {
       await postJSON(`/api/accounts/${id}`, {}, "DELETE");
       toast.success("Account archived");
-      mutate();
+      invalidate.all();
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -44,7 +46,15 @@ export default function AccountsPage() {
         </Button>
       </div>
 
-      {accounts && accounts.length > 0 && (
+      {isLoading && (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-16 w-full rounded-xl" />
+        </div>
+      )}
+
+      {!isLoading && accounts && accounts.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Total across accounts</p>
           <p className="text-2xl font-semibold tabular-nums">{formatCents(total)}</p>
@@ -78,7 +88,7 @@ export default function AccountsPage() {
         account={editing}
         open={formOpen}
         onOpenChange={setFormOpen}
-        onSaved={() => mutate()}
+        onSaved={() => invalidate.all()}
       />
     </div>
   );

@@ -1,23 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import { Plus, PiggyBank } from "lucide-react";
-import { fetcher } from "@/lib/fetcher";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { BudgetForm } from "@/components/budgets/BudgetForm";
-import type { BudgetStatusDTO, CategoryDTO } from "@/lib/types";
-
-interface BudgetsResponse {
-  month: string;
-  budgets: BudgetStatusDTO[];
-  unbudgetedCategories: CategoryDTO[];
-}
+import { useBudgets, useInvalidate } from "@/lib/queries";
+import type { BudgetStatusDTO } from "@/lib/types";
 
 export default function BudgetsPage() {
-  const { data, mutate, isLoading } = useSWR<BudgetsResponse>("/api/budgets", fetcher);
+  const { data, isLoading } = useBudgets();
+  const invalidate = useInvalidate();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<BudgetStatusDTO | undefined>(undefined);
 
@@ -37,6 +32,13 @@ export default function BudgetsPage() {
           </Button>
         )}
       </div>
+
+      {isLoading && (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-16 w-full rounded-xl" />
+        </div>
+      )}
 
       {!isLoading && data?.budgets.length === 0 && (
         <EmptyState
@@ -60,7 +62,7 @@ export default function BudgetsPage() {
         onOpenChange={setFormOpen}
         unbudgetedCategories={data?.unbudgetedCategories ?? []}
         editingBudget={editing}
-        onSaved={() => mutate()}
+        onSaved={() => invalidate.all()}
       />
     </div>
   );

@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import { Plus, Target } from "lucide-react";
-import { fetcher } from "@/lib/fetcher";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { GoalForm } from "@/components/goals/GoalForm";
-import type { GoalDTO } from "@/lib/types";
+import { useGoals, useInvalidate } from "@/lib/queries";
 
 export default function GoalsPage() {
-  const { data: goals, mutate, isLoading } = useSWR<GoalDTO[]>("/api/goals", fetcher);
+  const { data: goals, isLoading } = useGoals();
+  const invalidate = useInvalidate();
   const [formOpen, setFormOpen] = useState(false);
 
   return (
@@ -23,6 +23,13 @@ export default function GoalsPage() {
         </Button>
       </div>
 
+      {isLoading && (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+      )}
+
       {!isLoading && goals?.length === 0 && (
         <EmptyState
           icon={Target}
@@ -33,11 +40,11 @@ export default function GoalsPage() {
 
       <div className="flex flex-col gap-3">
         {goals?.map((goal) => (
-          <GoalCard key={goal._id} goal={goal} onChanged={() => mutate()} />
+          <GoalCard key={goal._id} goal={goal} onChanged={() => invalidate.all()} />
         ))}
       </div>
 
-      <GoalForm open={formOpen} onOpenChange={setFormOpen} onSaved={() => mutate()} />
+      <GoalForm open={formOpen} onOpenChange={setFormOpen} onSaved={() => invalidate.all()} />
     </div>
   );
 }
