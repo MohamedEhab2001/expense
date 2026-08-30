@@ -29,7 +29,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6 px-4 pt-6">
         <header>
           <p className="text-sm text-muted-foreground">Total balance</p>
-          <p className="text-3xl font-semibold tabular-nums">$0.00</p>
+          <p className="text-3xl font-semibold tabular-nums">{formatCents(0)}</p>
         </header>
         <Link
           href="/accounts"

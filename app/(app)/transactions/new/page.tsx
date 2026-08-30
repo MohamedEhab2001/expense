@@ -110,7 +110,7 @@ export default function NewTransactionPage() {
           <div className="flex flex-col items-center gap-1 py-4">
             <span className="text-sm text-muted-foreground">Amount</span>
             <div className="flex items-center gap-1">
-              <span className="text-2xl font-semibold text-muted-foreground">$</span>
+              <span className="text-2xl font-semibold text-muted-foreground">E£</span>
               <input
                 autoFocus
                 inputMode="decimal"

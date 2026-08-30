@@ -8,7 +8,7 @@ const AccountSchema = new Schema(
       enum: ["cash", "bank", "credit_card", "savings", "other"],
       required: true,
     },
-    currency: { type: String, default: "USD" },
+    currency: { type: String, default: "EGP" },
     balance: { type: Number, required: true, default: 0 }, // cents
     icon: { type: String, default: "wallet" },
     color: { type: String, default: "#34D399" },
