@@ -86,3 +86,31 @@ export interface DashboardSummaryDTO {
   topBudgets: BudgetStatusDTO[];
   topGoals: GoalDTO[];
 }
+
+export interface CategoryBreakdownItemDTO {
+  categoryId: string;
+  name: string;
+  icon: string;
+  color: string;
+  amount: number;
+}
+
+export interface MonthlyTrendItemDTO {
+  month: string;
+  label: string;
+  income: number;
+  expense: number;
+}
+
+export interface AnalyticsDTO {
+  categoryBreakdown: CategoryBreakdownItemDTO[];
+  trend: MonthlyTrendItemDTO[];
+}
+
+export interface TransactionFilters {
+  accountId?: string;
+  categoryId?: string;
+  type?: TransactionType;
+  from?: string;
+  to?: string;
+}

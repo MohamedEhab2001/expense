@@ -8,12 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { InsightCard } from "@/components/insights/InsightCard";
-import { useInsightsHistory, useInvalidate } from "@/lib/queries";
+import { CategoryBreakdownChart } from "@/components/insights/CategoryBreakdownChart";
+import { TrendChart } from "@/components/insights/TrendChart";
+import { useInsightsHistory, useInvalidate, useAnalytics } from "@/lib/queries";
 import type { AIInsightDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export default function InsightsPage() {
   const { data: history, isLoading } = useInsightsHistory();
+  const { data: analytics, isLoading: analyticsLoading } = useAnalytics();
   const invalidate = useInvalidate();
   const [pending, startTransition] = useTransition();
   const [latest, setLatest] = useState<AIInsightDTO | null>(null);
@@ -34,8 +37,28 @@ export default function InsightsPage() {
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">AI Insights</h1>
+      <h1 className="text-xl font-semibold">Insights</h1>
+
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">This month by category</p>
+        {analyticsLoading ? (
+          <Skeleton className="h-32 w-full rounded-xl" />
+        ) : (
+          <CategoryBreakdownChart data={analytics?.categoryBreakdown ?? []} />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">Income vs expense — last 6 months</p>
+        {analyticsLoading ? (
+          <Skeleton className="h-48 w-full rounded-xl" />
+        ) : (
+          <TrendChart data={analytics?.trend ?? []} />
+        )}
+      </section>
+
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-sm font-medium text-muted-foreground">AI Insights</p>
         <Button size="sm" onClick={generate} disabled={pending}>
           <Sparkles className="size-4" /> {pending ? "Analyzing..." : "Generate"}
         </Button>

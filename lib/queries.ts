@@ -7,6 +7,8 @@ import type {
   GoalDTO,
   AIInsightDTO,
   DashboardSummaryDTO,
+  AnalyticsDTO,
+  TransactionFilters,
 } from "@/lib/types";
 
 export const queryKeys = {
@@ -17,6 +19,7 @@ export const queryKeys = {
   goals: ["goals"] as const,
   insights: ["insights"] as const,
   dashboard: ["dashboard"] as const,
+  analytics: ["analytics"] as const,
 };
 
 export function useAccounts() {
@@ -33,10 +36,18 @@ export function useCategories() {
   });
 }
 
-export function useTransactions(limit = 100) {
+export function useTransactions(limit = 100, filters: TransactionFilters = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (filters.accountId) params.set("accountId", filters.accountId);
+  if (filters.categoryId) params.set("categoryId", filters.categoryId);
+  if (filters.type) params.set("type", filters.type);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  const qs = params.toString();
+
   return useQuery({
-    queryKey: [...queryKeys.transactions, limit],
-    queryFn: () => fetcher<TransactionDTO[]>(`/api/transactions?limit=${limit}`),
+    queryKey: [...queryKeys.transactions, qs],
+    queryFn: () => fetcher<TransactionDTO[]>(`/api/transactions?${qs}`),
   });
 }
 
@@ -74,6 +85,13 @@ export function useDashboardSummary() {
   });
 }
 
+export function useAnalytics() {
+  return useQuery({
+    queryKey: queryKeys.analytics,
+    queryFn: () => fetcher<AnalyticsDTO>("/api/analytics"),
+  });
+}
+
 export function useInvalidate() {
   const client = useQueryClient();
   return {
@@ -84,6 +102,7 @@ export function useInvalidate() {
     goals: () => client.invalidateQueries({ queryKey: queryKeys.goals }),
     insights: () => client.invalidateQueries({ queryKey: queryKeys.insights }),
     dashboard: () => client.invalidateQueries({ queryKey: queryKeys.dashboard }),
+    analytics: () => client.invalidateQueries({ queryKey: queryKeys.analytics }),
     all: () => client.invalidateQueries(),
   };
 }
