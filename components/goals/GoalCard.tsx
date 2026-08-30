@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { getIcon } from "@/lib/icon-map";
 import { formatCents, toCents } from "@/lib/utils/currency";
+import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export function GoalCard({ goal, onChanged }: { goal: GoalDTO; onChanged: () => 
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-transform active:scale-[0.99]">
       <div className="flex items-center gap-3">
         <div
           className="flex size-10 shrink-0 items-center justify-center rounded-full"
@@ -47,7 +48,7 @@ export function GoalCard({ goal, onChanged }: { goal: GoalDTO; onChanged: () => 
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{goal.name}</p>
           <p className="text-xs text-muted-foreground">
-            {formatCents(goal.currentAmount)} of {formatCents(goal.targetAmount)}
+            <AnimatedCurrency cents={goal.currentAmount} /> of {formatCents(goal.targetAmount)}
             {goal.targetDate ? ` · by ${format(new Date(goal.targetDate), "MMM d, yyyy")}` : ""}
             {goal.linkedAccountId ? ` · linked to ${goal.linkedAccountId.name}` : ""}
           </p>

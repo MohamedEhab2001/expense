@@ -5,6 +5,7 @@ import { Plus, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StaggerItem } from "@/components/shared/StaggerItem";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { GoalForm } from "@/components/goals/GoalForm";
 import { useGoals, useInvalidate } from "@/lib/queries";
@@ -39,8 +40,10 @@ export default function GoalsPage() {
       )}
 
       <div className="flex flex-col gap-3">
-        {goals?.map((goal) => (
-          <GoalCard key={goal._id} goal={goal} onChanged={() => invalidate.all()} />
+        {goals?.map((goal, i) => (
+          <StaggerItem key={goal._id} index={i}>
+            <GoalCard goal={goal} onChanged={() => invalidate.all()} />
+          </StaggerItem>
         ))}
       </div>
 

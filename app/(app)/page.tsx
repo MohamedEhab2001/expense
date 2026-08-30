@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { formatCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
+import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +36,7 @@ function DashboardSkeleton() {
 export default function DashboardPage() {
   const { data, isLoading } = useDashboardSummary();
   const invalidate = useInvalidate();
+  const reduceMotion = useReducedMotion();
 
   async function removeTransaction(id: string) {
     try {
@@ -58,7 +61,7 @@ export default function DashboardPage() {
         </header>
         <Link
           href="/accounts"
-          className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground"
+          className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground transition-colors active:bg-secondary/50"
         >
           No accounts yet. Tap here to add one and get started.
         </Link>
@@ -66,17 +69,21 @@ export default function DashboardPage() {
     );
   }
 
+  const itemDelay = (i: number) => (reduceMotion ? 0 : i * 0.04);
+
   return (
     <div className="flex flex-col gap-6 px-4 pt-6">
       <header>
         <p className="text-sm text-muted-foreground">Total balance</p>
-        <p className="text-3xl font-semibold tabular-nums">{formatCents(data.totalBalance)}</p>
+        <p className="text-3xl font-semibold tabular-nums">
+          <AnimatedCurrency cents={data.totalBalance} />
+        </p>
       </header>
 
       {data.upcomingDebts.length > 0 && (
         <Link
           href="/debts"
-          className="flex flex-col gap-2 rounded-xl border border-l-4 border-warning bg-card p-3"
+          className="flex flex-col gap-2 rounded-xl border border-l-4 border-warning bg-card p-3 transition-transform active:scale-[0.98]"
         >
           <div className="flex items-center gap-2 text-warning">
             <AlertTriangle className="size-4" />
@@ -97,23 +104,31 @@ export default function DashboardPage() {
 
       {data.accounts.length > 0 && (
         <section className="flex gap-3 overflow-x-auto pb-1">
-          {data.accounts.map((a) => {
+          {data.accounts.map((a, i) => {
             const Icon = getIcon(a.icon);
             return (
-              <Link
+              <motion.div
                 key={a._id}
-                href="/accounts"
-                className="flex min-w-[140px] flex-col gap-2 rounded-xl border border-border bg-card p-3"
+                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: itemDelay(i) }}
               >
-                <div
-                  className="flex size-8 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${a.color}26`, color: a.color }}
+                <Link
+                  href="/accounts"
+                  className="flex min-w-[140px] flex-col gap-2 rounded-xl border border-border bg-card p-3 transition-transform active:scale-[0.98]"
                 >
-                  <Icon className="size-4" />
-                </div>
-                <p className="truncate text-sm font-medium">{a.name}</p>
-                <p className="tabular-nums text-sm text-muted-foreground">{formatCents(a.balance)}</p>
-              </Link>
+                  <div
+                    className="flex size-8 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `${a.color}26`, color: a.color }}
+                  >
+                    <Icon className="size-4" />
+                  </div>
+                  <p className="truncate text-sm font-medium">{a.name}</p>
+                  <p className="tabular-nums text-sm text-muted-foreground">
+                    <AnimatedCurrency cents={a.balance} />
+                  </p>
+                </Link>
+              </motion.div>
             );
           })}
         </section>
@@ -148,10 +163,15 @@ export default function DashboardPage() {
                 <div key={g._id} className="min-w-[160px] rounded-xl border border-border bg-card p-3">
                   <p className="truncate text-sm font-medium">{g.name}</p>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                    <motion.div
+                      className="h-full rounded-full bg-primary"
+                      initial={reduceMotion ? false : { width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
                   </div>
                   <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                    {formatCents(g.currentAmount)} / {formatCents(g.targetAmount)}
+                    <AnimatedCurrency cents={g.currentAmount} /> / {formatCents(g.targetAmount)}
                   </p>
                 </div>
               );
@@ -171,8 +191,15 @@ export default function DashboardPage() {
           <p className="py-4 text-center text-sm text-muted-foreground">No transactions yet.</p>
         )}
         <div className="divide-y divide-border">
-          {data.recentTransactions.map((tx) => (
-            <TransactionRow key={tx._id} transaction={tx} onDelete={() => removeTransaction(tx._id)} />
+          {data.recentTransactions.map((tx, i) => (
+            <motion.div
+              key={tx._id}
+              initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: itemDelay(i) }}
+            >
+              <TransactionRow transaction={tx} onDelete={() => removeTransaction(tx._id)} />
+            </motion.div>
           ))}
         </div>
       </section>

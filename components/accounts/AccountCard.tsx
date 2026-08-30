@@ -2,7 +2,7 @@
 
 import { MoreVertical, Pencil, Archive } from "lucide-react";
 import { getIcon } from "@/lib/icon-map";
-import { formatCents } from "@/lib/utils/currency";
+import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +23,7 @@ export function AccountCard({
   const Icon = getIcon(account.icon);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-transform active:scale-[0.99]">
       <div
         className="flex size-10 shrink-0 items-center justify-center rounded-full"
         style={{ backgroundColor: `${account.color}26`, color: account.color }}
@@ -34,7 +34,9 @@ export function AccountCard({
         <p className="truncate font-medium">{account.name}</p>
         <p className="text-xs capitalize text-muted-foreground">{account.type.replace("_", " ")}</p>
       </div>
-      <p className="tabular-nums font-semibold">{formatCents(account.balance, account.currency)}</p>
+      <p className="tabular-nums font-semibold">
+        <AnimatedCurrency cents={account.balance} currency={account.currency} />
+      </p>
 
       <DropdownMenu>
         <DropdownMenuTrigger className="flex size-8 items-center justify-center rounded-full text-muted-foreground active:bg-secondary">

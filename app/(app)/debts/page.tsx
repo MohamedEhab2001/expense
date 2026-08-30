@@ -5,6 +5,7 @@ import { Plus, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StaggerItem } from "@/components/shared/StaggerItem";
 import { DebtCard } from "@/components/debts/DebtCard";
 import { DebtForm } from "@/components/debts/DebtForm";
 import { useDebts, useInvalidate } from "@/lib/queries";
@@ -52,16 +53,17 @@ export default function DebtsPage() {
       )}
 
       <div className="flex flex-col gap-3">
-        {debts?.map((debt) => (
-          <DebtCard
-            key={debt._id}
-            debt={debt}
-            onEdit={() => {
-              setEditing(debt);
-              setFormOpen(true);
-            }}
-            onChanged={refresh}
-          />
+        {debts?.map((debt, i) => (
+          <StaggerItem key={debt._id} index={i}>
+            <DebtCard
+              debt={debt}
+              onEdit={() => {
+                setEditing(debt);
+                setFormOpen(true);
+              }}
+              onChanged={refresh}
+            />
+          </StaggerItem>
         ))}
       </div>
 

@@ -132,12 +132,21 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
   }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Delete, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState(false);
   const [pending, startTransition] = useTransition();
+  const reduceMotion = useReducedMotion();
 
   function press(key: string) {
     if (error) setError(false);
@@ -60,15 +62,21 @@ export default function LoginPage() {
           error && "animate-[shake_0.3s_ease-in-out]"
         )}
       >
-        {Array.from({ length: Math.max(4, passcode.length) }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              "size-3.5 rounded-full border border-border transition-colors",
-              i < passcode.length && (error ? "bg-destructive border-destructive" : "bg-primary border-primary")
-            )}
-          />
-        ))}
+        {Array.from({ length: Math.max(4, passcode.length) }).map((_, i) => {
+          const filled = i < passcode.length;
+          return (
+            <motion.div
+              key={`${i}-${filled}`}
+              initial={reduceMotion ? false : { scale: filled ? 0.4 : 1 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 20 }}
+              className={cn(
+                "size-3.5 rounded-full border border-border",
+                filled && (error ? "bg-destructive border-destructive" : "bg-primary border-primary")
+              )}
+            />
+          );
+        })}
       </div>
 
       {error && <p className="text-sm text-destructive">Incorrect passcode</p>}
@@ -83,7 +91,7 @@ export default function LoginPage() {
               onClick={() => press(key)}
               disabled={pending}
               aria-label="Delete"
-              className="flex size-16 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-secondary"
+              className="flex size-16 items-center justify-center rounded-full text-muted-foreground transition-all active:scale-90 active:bg-secondary"
             >
               <Delete className="size-5" />
             </button>
@@ -92,7 +100,7 @@ export default function LoginPage() {
               key={i}
               onClick={() => press(key)}
               disabled={pending}
-              className="flex size-16 items-center justify-center rounded-full text-xl font-medium transition-colors active:bg-secondary"
+              className="flex size-16 items-center justify-center rounded-full text-xl font-medium transition-all active:scale-90 active:bg-secondary"
             >
               {key}
             </button>

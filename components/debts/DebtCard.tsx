@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MoreVertical, Pencil, Archive, Check } from "lucide-react";
 import { getIcon } from "@/lib/icon-map";
 import { formatCents } from "@/lib/utils/currency";
+import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -79,7 +80,7 @@ export function DebtCard({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-transform active:scale-[0.99]">
       <div className="flex items-start gap-3">
         <div
           className="flex size-10 shrink-0 items-center justify-center rounded-full"
@@ -116,16 +117,19 @@ export function DebtCard({
       {progress !== null && (
         <div className="flex flex-col gap-1">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
           </div>
           <p className="text-xs tabular-nums text-muted-foreground">
-            {formatCents(debt.remainingAmount)} left of {formatCents(debt.totalAmount!)}
+            <AnimatedCurrency cents={debt.remainingAmount} /> left of {formatCents(debt.totalAmount!)}
           </p>
         </div>
       )}
       {progress === null && (
         <p className="text-xs tabular-nums text-muted-foreground">
-          {formatCents(debt.remainingAmount)} balance
+          <AnimatedCurrency cents={debt.remainingAmount} /> balance
         </p>
       )}
 

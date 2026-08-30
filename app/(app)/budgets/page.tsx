@@ -5,6 +5,7 @@ import { Plus, PiggyBank } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StaggerItem } from "@/components/shared/StaggerItem";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { BudgetForm } from "@/components/budgets/BudgetForm";
 import { useBudgets, useInvalidate } from "@/lib/queries";
@@ -49,10 +50,12 @@ export default function BudgetsPage() {
       )}
 
       <div className="flex flex-col gap-2">
-        {data?.budgets.map((b) => (
-          <button key={b._id} onClick={() => { setEditing(b); setFormOpen(true); }} className="text-left">
-            <BudgetProgressBar budget={b} />
-          </button>
+        {data?.budgets.map((b, i) => (
+          <StaggerItem key={b._id} index={i}>
+            <button onClick={() => { setEditing(b); setFormOpen(true); }} className="w-full text-left transition-transform active:scale-[0.99]">
+              <BudgetProgressBar budget={b} />
+            </button>
+          </StaggerItem>
         ))}
       </div>
 

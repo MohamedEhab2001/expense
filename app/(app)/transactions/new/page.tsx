@@ -72,6 +72,9 @@ export default function NewTransactionPage() {
         note: note.trim() || undefined,
       });
       toast.success("Transaction saved");
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate(12);
+      }
       invalidate.all();
       router.push("/transactions");
     } catch (e) {
@@ -105,7 +108,7 @@ export default function NewTransactionPage() {
                 key={t.value}
                 onClick={() => setType(t.value)}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs font-medium transition-colors",
+                  "flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs font-medium transition-all active:scale-95",
                   type === t.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
                 )}
               >
@@ -176,7 +179,7 @@ export default function NewTransactionPage() {
                       key={cat._id}
                       onClick={() => setCategoryId(cat._id)}
                       className={cn(
-                        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-all active:scale-95",
                         active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
                       )}
                     >

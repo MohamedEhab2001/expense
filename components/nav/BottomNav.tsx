@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { Home, Receipt, Wallet, Plus, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +32,7 @@ const MORE_LINKS = [
 export function BottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const inMore = MORE_LINKS.some((l) => l.href === pathname);
 
   useEffect(() => {
     setMoreOpen(false);
@@ -46,7 +48,7 @@ export function BottomNav() {
         <Link
           href="/transactions/new"
           aria-label="Add transaction"
-          className="-mt-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
+          className="-mt-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-90"
         >
           <Plus className="size-6" />
         </Link>
@@ -58,10 +60,20 @@ export function BottomNav() {
         <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
           <SheetTrigger
             aria-label="More"
-            className="flex flex-1 flex-col items-center gap-1 py-2 text-muted-foreground transition-colors active:text-foreground"
+            className={cn(
+              "relative flex flex-1 flex-col items-center gap-1 py-2 transition-colors",
+              inMore ? "text-primary" : "text-muted-foreground active:text-foreground"
+            )}
           >
-            <Menu className="size-5" />
-            <span className="text-[11px] font-medium">More</span>
+            {inMore && (
+              <motion.div
+                layoutId="nav-active-pill"
+                className="absolute inset-x-2 inset-y-0.5 rounded-xl bg-primary/10"
+                transition={{ type: "spring", stiffness: 500, damping: 35 }}
+              />
+            )}
+            <Menu className="relative size-5" />
+            <span className="relative text-[11px] font-medium">More</span>
           </SheetTrigger>
           <SheetContent side="bottom" className="rounded-t-2xl">
             <SheetHeader>
@@ -72,7 +84,7 @@ export function BottomNav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="flex flex-col items-center gap-2 rounded-xl border border-border bg-secondary/50 p-4 text-center transition-colors active:bg-secondary"
+                  className="flex flex-col items-center gap-2 rounded-xl border border-border bg-secondary/50 p-4 text-center transition-transform active:scale-95 active:bg-secondary"
                 >
                   <link.icon className="size-5 text-primary" />
                   <span className="text-xs font-medium">{link.label}</span>
@@ -97,12 +109,19 @@ function NavItem({
     <Link
       href={tab.href}
       className={cn(
-        "flex flex-1 flex-col items-center gap-1 py-2 transition-colors",
+        "relative flex flex-1 flex-col items-center gap-1 py-2 transition-colors",
         active ? "text-primary" : "text-muted-foreground active:text-foreground"
       )}
     >
-      <tab.icon className="size-5" />
-      <span className="text-[11px] font-medium">{tab.label}</span>
+      {active && (
+        <motion.div
+          layoutId="nav-active-pill"
+          className="absolute inset-x-2 inset-y-0.5 rounded-xl bg-primary/10"
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        />
+      )}
+      <tab.icon className="relative size-5" />
+      <span className="relative text-[11px] font-medium">{tab.label}</span>
     </Link>
   );
 }

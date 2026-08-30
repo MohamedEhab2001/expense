@@ -41,7 +41,7 @@ export function TransactionRow({
     : transaction.accountId.name;
 
   return (
-    <div className="flex items-center gap-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-lg py-2.5 transition-colors active:bg-secondary/40">
       <div
         className="flex size-9 shrink-0 items-center justify-center rounded-full"
         style={{ backgroundColor: `${color}26`, color }}

@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { Plus, Wallet } from "lucide-react";
 import { postJSON } from "@/lib/fetcher";
-import { formatCents } from "@/lib/utils/currency";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
+import { StaggerItem } from "@/components/shared/StaggerItem";
 import { AccountCard } from "@/components/accounts/AccountCard";
 import { AccountForm } from "@/components/accounts/AccountForm";
 import { useAccounts, useInvalidate } from "@/lib/queries";
@@ -57,7 +58,9 @@ export default function AccountsPage() {
       {!isLoading && accounts && accounts.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Total across accounts</p>
-          <p className="text-2xl font-semibold tabular-nums">{formatCents(total)}</p>
+          <p className="text-2xl font-semibold tabular-nums">
+            <AnimatedCurrency cents={total} />
+          </p>
         </div>
       )}
 
@@ -70,16 +73,17 @@ export default function AccountsPage() {
       )}
 
       <div className="flex flex-col gap-2">
-        {accounts?.map((account) => (
-          <AccountCard
-            key={account._id}
-            account={account}
-            onEdit={() => {
-              setEditing(account);
-              setFormOpen(true);
-            }}
-            onArchive={() => archive(account._id)}
-          />
+        {accounts?.map((account, i) => (
+          <StaggerItem key={account._id} index={i}>
+            <AccountCard
+              account={account}
+              onEdit={() => {
+                setEditing(account);
+                setFormOpen(true);
+              }}
+              onArchive={() => archive(account._id)}
+            />
+          </StaggerItem>
         ))}
       </div>
 

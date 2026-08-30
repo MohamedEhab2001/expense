@@ -5,6 +5,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { Receipt, SlidersHorizontal } from "lucide-react";
 import { postJSON } from "@/lib/fetcher";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StaggerItem } from "@/components/shared/StaggerItem";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { TransactionFilterSheet } from "@/components/transactions/TransactionFilterSheet";
 import { Separator } from "@/components/ui/separator";
@@ -84,17 +85,22 @@ export default function TransactionsPage() {
         />
       )}
 
-      {Object.entries(groups).map(([label, txs]) => (
-        <div key={label}>
-          <p className="mb-1 text-sm font-medium text-muted-foreground">{label}</p>
-          <div className="divide-y divide-border">
-            {txs.map((tx) => (
-              <TransactionRow key={tx._id} transaction={tx} onDelete={() => remove(tx._id)} />
-            ))}
+      {(() => {
+        let idx = 0;
+        return Object.entries(groups).map(([label, txs]) => (
+          <div key={label}>
+            <p className="mb-1 text-sm font-medium text-muted-foreground">{label}</p>
+            <div className="divide-y divide-border">
+              {txs.map((tx) => (
+                <StaggerItem key={tx._id} index={idx++}>
+                  <TransactionRow transaction={tx} onDelete={() => remove(tx._id)} />
+                </StaggerItem>
+              ))}
+            </div>
+            <Separator className="mt-2" />
           </div>
-          <Separator className="mt-2" />
-        </div>
-      ))}
+        ));
+      })()}
 
       <TransactionFilterSheet
         open={filterOpen}
