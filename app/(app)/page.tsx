@@ -1,13 +1,133 @@
+"use client";
+
+import useSWR from "swr";
+import Link from "next/link";
+import { fetcher } from "@/lib/fetcher";
+import { formatCents } from "@/lib/utils/currency";
+import { getIcon } from "@/lib/icon-map";
+import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
+import { TransactionRow } from "@/components/transactions/TransactionRow";
+import { postJSON } from "@/lib/fetcher";
+import { toast } from "sonner";
+import type { DashboardSummaryDTO } from "@/lib/types";
+
 export default function DashboardPage() {
+  const { data, mutate, isLoading } = useSWR<DashboardSummaryDTO>("/api/dashboard/summary", fetcher);
+
+  async function removeTransaction(id: string) {
+    try {
+      await postJSON(`/api/transactions/${id}`, {}, "DELETE");
+      toast.success("Transaction deleted");
+      mutate();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  if (!isLoading && (!data || data.accounts.length === 0)) {
+    return (
+      <div className="flex flex-col gap-6 px-4 pt-6">
+        <header>
+          <p className="text-sm text-muted-foreground">Total balance</p>
+          <p className="text-3xl font-semibold tabular-nums">$0.00</p>
+        </header>
+        <Link
+          href="/accounts"
+          className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground"
+        >
+          No accounts yet. Tap here to add one and get started.
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 px-4 pt-6">
       <header>
         <p className="text-sm text-muted-foreground">Total balance</p>
-        <p className="text-3xl font-semibold tabular-nums">$0.00</p>
+        <p className="text-3xl font-semibold tabular-nums">{formatCents(data?.totalBalance ?? 0)}</p>
       </header>
 
-      <section className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-        No accounts yet. Add one from the Accounts screen to get started.
+      {data && data.accounts.length > 0 && (
+        <section className="flex gap-3 overflow-x-auto pb-1">
+          {data.accounts.map((a) => {
+            const Icon = getIcon(a.icon);
+            return (
+              <Link
+                key={a._id}
+                href="/accounts"
+                className="flex min-w-[140px] flex-col gap-2 rounded-xl border border-border bg-card p-3"
+              >
+                <div
+                  className="flex size-8 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${a.color}26`, color: a.color }}
+                >
+                  <Icon className="size-4" />
+                </div>
+                <p className="truncate text-sm font-medium">{a.name}</p>
+                <p className="tabular-nums text-sm text-muted-foreground">{formatCents(a.balance)}</p>
+              </Link>
+            );
+          })}
+        </section>
+      )}
+
+      {data && data.topBudgets.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Budgets</p>
+            <Link href="/budgets" className="text-xs text-primary">
+              See all
+            </Link>
+          </div>
+          {data.topBudgets.map((b) => (
+            <BudgetProgressBar key={b._id} budget={b} />
+          ))}
+        </section>
+      )}
+
+      {data && data.topGoals.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Savings goals</p>
+            <Link href="/goals" className="text-xs text-primary">
+              See all
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {data.topGoals.map((g) => {
+              const pct = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;
+              return (
+                <div key={g._id} className="min-w-[160px] rounded-xl border border-border bg-card p-3">
+                  <p className="truncate text-sm font-medium">{g.name}</p>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                    {formatCents(g.currentAmount)} / {formatCents(g.targetAmount)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-muted-foreground">Recent activity</p>
+          <Link href="/transactions" className="text-xs text-primary">
+            See all
+          </Link>
+        </div>
+        {data?.recentTransactions.length === 0 && (
+          <p className="py-4 text-center text-sm text-muted-foreground">No transactions yet.</p>
+        )}
+        <div className="divide-y divide-border">
+          {data?.recentTransactions.map((tx) => (
+            <TransactionRow key={tx._id} transaction={tx} onDelete={() => removeTransaction(tx._id)} />
+          ))}
+        </div>
       </section>
     </div>
   );

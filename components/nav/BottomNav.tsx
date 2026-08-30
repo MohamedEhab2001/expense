@@ -49,14 +49,12 @@ export function BottomNav() {
         ))}
 
         <Sheet>
-          <SheetTrigger asChild>
-            <button
-              aria-label="More"
-              className="flex flex-1 flex-col items-center gap-1 py-2 text-muted-foreground transition-colors active:text-foreground"
-            >
-              <Menu className="size-5" />
-              <span className="text-[11px] font-medium">More</span>
-            </button>
+          <SheetTrigger
+            aria-label="More"
+            className="flex flex-1 flex-col items-center gap-1 py-2 text-muted-foreground transition-colors active:text-foreground"
+          >
+            <Menu className="size-5" />
+            <span className="text-[11px] font-medium">More</span>
           </SheetTrigger>
           <SheetContent side="bottom" className="rounded-t-2xl">
             <SheetHeader>
