@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { connectDB } from "@/lib/db";
 import Account from "@/models/Account";
 import "@/models/Category";
@@ -113,6 +114,53 @@ export async function updateTransactionLocation(
   ).lean();
   if (!updated) throw new Error("Transaction not found");
   return updated;
+}
+
+export async function hasTransactionOnDate(date: Date) {
+  await connectDB();
+  const count = await Transaction.countDocuments({
+    date: { $gte: startOfDay(date), $lte: endOfDay(date) },
+  });
+  return count > 0;
+}
+
+export async function getStreaks(lookbackDays = 60) {
+  await connectDB();
+  const now = new Date();
+  const start = startOfDay(subDays(now, lookbackDays - 1));
+
+  const [allDates, expenseDates] = await Promise.all([
+    Transaction.aggregate([
+      { $match: { date: { $gte: start } } },
+      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } } } },
+    ]),
+    Transaction.aggregate([
+      { $match: { date: { $gte: start }, type: "expense" } },
+      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } } } },
+    ]),
+  ]);
+
+  const loggedDays = new Set<string>(allDates.map((d) => d._id));
+  const expenseDays = new Set<string>(expenseDates.map((d) => d._id));
+  const todayKey = format(now, "yyyy-MM-dd");
+
+  function countStreak(daySet: Set<string>, hit: boolean) {
+    // Give a one-day grace period for "positive" streaks (hit = true) so the streak doesn't
+    // reset to 0 the moment a new day starts, before you've had a chance to log anything.
+    const startOffset = daySet.has(todayKey) === hit ? 0 : hit ? 1 : 0;
+    let streak = 0;
+    for (let i = startOffset; i < lookbackDays; i++) {
+      const key = format(subDays(now, i), "yyyy-MM-dd");
+      if (daySet.has(key) === hit) streak++;
+      else break;
+    }
+    return streak;
+  }
+
+  return {
+    logStreak: countStreak(loggedDays, true),
+    noSpendStreak: countStreak(expenseDays, false),
+  };
 }
 
 export async function deleteTransaction(id: string) {

@@ -11,13 +11,23 @@ import { InsightCard } from "@/components/insights/InsightCard";
 import { CategoryBreakdownChart } from "@/components/insights/CategoryBreakdownChart";
 import { TrendChart } from "@/components/insights/TrendChart";
 import { ExpensePeriodSummary } from "@/components/insights/ExpensePeriodSummary";
-import { useInsightsHistory, useInvalidate, useAnalytics } from "@/lib/queries";
+import { LocationBreakdownChart } from "@/components/insights/LocationBreakdownChart";
+import { NetWorthChart } from "@/components/insights/NetWorthChart";
+import {
+  useInsightsHistory,
+  useInvalidate,
+  useAnalytics,
+  useLocationBreakdown,
+  useNetWorthTrend,
+} from "@/lib/queries";
 import type { AIInsightDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export default function InsightsPage() {
   const { data: history, isLoading } = useInsightsHistory();
   const { data: analytics, isLoading: analyticsLoading } = useAnalytics();
+  const { data: locationData, isLoading: locationLoading } = useLocationBreakdown();
+  const { data: netWorthData, isLoading: netWorthLoading } = useNetWorthTrend();
   const invalidate = useInvalidate();
   const [pending, startTransition] = useTransition();
   const [latest, setLatest] = useState<AIInsightDTO | null>(null);
@@ -57,6 +67,24 @@ export default function InsightsPage() {
           <Skeleton className="h-48 w-full rounded-xl" />
         ) : (
           <TrendChart data={analytics?.trend ?? []} />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">Net worth — last 30 days</p>
+        {netWorthLoading ? (
+          <Skeleton className="h-44 w-full rounded-xl" />
+        ) : (
+          <NetWorthChart data={netWorthData ?? []} />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">Spending by location</p>
+        {locationLoading ? (
+          <Skeleton className="h-32 w-full rounded-xl" />
+        ) : (
+          <LocationBreakdownChart data={locationData?.breakdown ?? []} />
         )}
       </section>
 

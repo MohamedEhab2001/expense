@@ -1,10 +1,11 @@
 import { connectDB } from "@/lib/db";
 import Account from "@/models/Account";
-import { listTransactions } from "./transactionService";
+import { listTransactions, getStreaks } from "./transactionService";
 import { getMonthlyBudgetStatus } from "./budgetService";
 import { listGoals } from "./goalService";
 import { getUpcomingDebts, listDebts } from "./debtService";
 import { getCreditCardAlerts } from "./accountService";
+import { getSpendingPace } from "./analyticsService";
 import type { DebtStatus } from "./debtService";
 
 const DEBT_STATUS_RANK: Record<DebtStatus, number> = {
@@ -18,16 +19,27 @@ const DEBT_STATUS_RANK: Record<DebtStatus, number> = {
 export async function getDashboardSummary() {
   await connectDB();
 
-  const [accounts, recentTransactions, budgetStatus, goals, allDebts, upcomingDebts, creditCardAlerts] =
-    await Promise.all([
-      Account.find({ isArchived: false }).sort({ order: 1 }).lean(),
-      listTransactions({ limit: 8 }),
-      getMonthlyBudgetStatus(),
-      listGoals(),
-      listDebts(),
-      getUpcomingDebts(),
-      getCreditCardAlerts(),
-    ]);
+  const [
+    accounts,
+    recentTransactions,
+    budgetStatus,
+    goals,
+    allDebts,
+    upcomingDebts,
+    creditCardAlerts,
+    streaks,
+    spendingPace,
+  ] = await Promise.all([
+    Account.find({ isArchived: false }).sort({ order: 1 }).lean(),
+    listTransactions({ limit: 8 }),
+    getMonthlyBudgetStatus(),
+    listGoals(),
+    listDebts(),
+    getUpcomingDebts(),
+    getCreditCardAlerts(),
+    getStreaks(),
+    getSpendingPace(),
+  ]);
 
   const topDebts = allDebts
     .filter((d) => d.status !== "paid_off")
@@ -52,5 +64,7 @@ export async function getDashboardSummary() {
     topDebts,
     upcomingDebts,
     creditCardAlerts,
+    streaks,
+    spendingPace,
   };
 }

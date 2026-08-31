@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/db";
 import Transaction from "@/models/Transaction";
+import Account from "@/models/Account";
 import "@/models/Category";
 import { monthKey, monthRange } from "@/lib/utils/dates";
 import {
@@ -163,4 +164,86 @@ export async function getExpenseSummary(period: ExpensePeriod, referenceDate: Da
     previousTotal,
     breakdown,
   };
+}
+
+export async function getLocationBreakdown(monthsBack = 12) {
+  await connectDB();
+  const since = subMonths(new Date(), monthsBack);
+
+  const rows = await Transaction.aggregate([
+    { $match: { type: "expense", date: { $gte: since } } },
+    {
+      $group: {
+        _id: { $ifNull: ["$location.governorate", { $ifNull: ["$location.city", "Unknown"] }] },
+        amount: { $sum: "$amount" },
+      },
+    },
+    { $sort: { amount: -1 } },
+  ]);
+
+  return rows.map((r) => ({ label: r._id as string, amount: r.amount as number }));
+}
+
+export async function getSpendingPace() {
+  await connectDB();
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysInMonth = endOfMonth(now).getDate();
+
+  const { start: mtdStart } = monthRange(monthKey(now));
+  const monthToDateExpense = await sumExpenses(mtdStart, now);
+
+  const pastTotals = await Promise.all(
+    [1, 2, 3].map((n) => {
+      const { start, end } = monthRange(monthKey(subMonths(now, n)));
+      return sumExpenses(start, end);
+    })
+  );
+  const validPastTotals = pastTotals.filter((t) => t > 0);
+  const avgPastMonth = validPastTotals.length
+    ? validPastTotals.reduce((s, t) => s + t, 0) / validPastTotals.length
+    : 0;
+
+  const expectedPace = avgPastMonth * (dayOfMonth / daysInMonth);
+  const percentOfPace = expectedPace > 0 ? Math.round((monthToDateExpense / expectedPace) * 100) : null;
+
+  return { monthToDateExpense, expectedPace, percentOfPace };
+}
+
+export async function getNetWorthTrend(days = 30) {
+  await connectDB();
+  const accounts = await Account.find({ isArchived: false }).lean();
+  const currentTotalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
+
+  const now = new Date();
+  const dayStarts = Array.from({ length: days }, (_, i) => startOfDay(subDays(now, days - 1 - i)));
+
+  const dailyNets = await Promise.all(
+    dayStarts.map(async (dayStart) => {
+      const dayEnd = endOfDay(dayStart);
+      const [incomeAgg, expenseAgg] = await Promise.all([
+        Transaction.aggregate([
+          { $match: { type: "income", date: { $gte: dayStart, $lte: dayEnd } } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]),
+        Transaction.aggregate([
+          { $match: { type: "expense", date: { $gte: dayStart, $lte: dayEnd } } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]),
+      ]);
+      return (incomeAgg[0]?.total ?? 0) - (expenseAgg[0]?.total ?? 0);
+    })
+  );
+
+  // Walk backward from today's actual balance, undoing each day's net income/expense effect.
+  // Transfers and ATM withdrawals move money between the user's own accounts, so they net to
+  // zero and don't need to be considered here.
+  const points: { date: string; label: string; netWorth: number }[] = new Array(days);
+  let runningBalance = currentTotalBalance;
+  for (let i = days - 1; i >= 0; i--) {
+    points[i] = { date: format(dayStarts[i], "yyyy-MM-dd"), label: format(dayStarts[i], "MMM d"), netWorth: runningBalance };
+    runningBalance -= dailyNets[i];
+  }
+
+  return points;
 }

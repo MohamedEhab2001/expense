@@ -12,6 +12,8 @@ import type {
   DebtDTO,
   ExpensePeriod,
   ExpenseSummaryDTO,
+  ExpenseBreakdownBarDTO,
+  NetWorthPointDTO,
 } from "@/lib/types";
 
 export const queryKeys = {
@@ -108,6 +110,20 @@ export function useExpenseSummary(period: ExpensePeriod, date: Date) {
   return useQuery({
     queryKey: ["expenseSummary", period, dateKey],
     queryFn: () => fetcher<ExpenseSummaryDTO>(`/api/analytics/expenses?period=${period}&date=${dateKey}`),
+  });
+}
+
+export function useLocationBreakdown() {
+  return useQuery({
+    queryKey: ["locationBreakdown"],
+    queryFn: () => fetcher<{ breakdown: ExpenseBreakdownBarDTO[] }>("/api/analytics/locations"),
+  });
+}
+
+export function useNetWorthTrend(days = 30) {
+  return useQuery({
+    queryKey: ["netWorthTrend", days],
+    queryFn: () => fetcher<NetWorthPointDTO[]>(`/api/analytics/networth?days=${days}`),
   });
 }
 

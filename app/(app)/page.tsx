@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle, CreditCard } from "lucide-react";
+import { AlertTriangle, CreditCard, Flame, Leaf } from "lucide-react";
 import { formatCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
 import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
@@ -120,6 +120,52 @@ export default function DashboardPage() {
           <AnimatedCurrency cents={includeSavings ? data.totalBalance : data.totalBalanceExcludingSavings} />
         </p>
       </header>
+
+      {(data.streaks.logStreak > 0 || data.streaks.noSpendStreak > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {data.streaks.logStreak > 0 && (
+            <div className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
+              <Flame className="size-3.5 text-orange-500" />
+              {data.streaks.logStreak}-day logging streak
+            </div>
+          )}
+          {data.streaks.noSpendStreak > 0 && (
+            <div className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
+              <Leaf className="size-3.5 text-success" />
+              {data.streaks.noSpendStreak}-day no-spend streak
+            </div>
+          )}
+        </div>
+      )}
+
+      {data.spendingPace.percentOfPace !== null && (
+        <Link href="/insights" className="rounded-xl border border-border bg-card p-3 transition-transform active:scale-[0.98]">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Spending pace this month</span>
+            <span
+              className={cn(
+                "font-medium tabular-nums",
+                data.spendingPace.percentOfPace >= 100 ? "text-destructive" : "text-muted-foreground"
+              )}
+            >
+              {data.spendingPace.percentOfPace}% of typical
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                data.spendingPace.percentOfPace >= 100
+                  ? "bg-destructive"
+                  : data.spendingPace.percentOfPace >= 80
+                    ? "bg-warning"
+                    : "bg-success"
+              )}
+              style={{ width: `${Math.min(100, data.spendingPace.percentOfPace)}%` }}
+            />
+          </div>
+        </Link>
+      )}
 
       {data.upcomingDebts.length > 0 && (
         <Link

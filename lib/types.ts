@@ -102,6 +102,17 @@ export interface AIInsightDTO {
   model: string;
 }
 
+export interface StreaksDTO {
+  logStreak: number;
+  noSpendStreak: number;
+}
+
+export interface SpendingPaceDTO {
+  monthToDateExpense: number;
+  expectedPace: number;
+  percentOfPace: number | null;
+}
+
 export interface DashboardSummaryDTO {
   accounts: AccountDTO[];
   totalBalance: number;
@@ -112,6 +123,8 @@ export interface DashboardSummaryDTO {
   topDebts: DebtDTO[];
   upcomingDebts: DebtDTO[];
   creditCardAlerts: CreditCardAlertDTO[];
+  streaks: StreaksDTO;
+  spendingPace: SpendingPaceDTO;
 }
 
 export interface CategoryBreakdownItemDTO {
@@ -149,6 +162,12 @@ export interface ExpenseSummaryDTO {
   total: number;
   previousTotal: number;
   breakdown: ExpenseBreakdownBarDTO[];
+}
+
+export interface NetWorthPointDTO {
+  date: string;
+  label: string;
+  netWorth: number;
 }
 
 export interface DebtDTO {
