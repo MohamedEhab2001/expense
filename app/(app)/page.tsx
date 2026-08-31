@@ -204,6 +204,51 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {data.topDebts.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Debts & installments</p>
+            <Link href="/debts" className="text-xs text-primary">
+              See all
+            </Link>
+          </div>
+          {data.topDebts.map((d) => {
+            const Icon = getIcon(d.icon);
+            return (
+              <Link
+                key={d._id}
+                href="/debts"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-transform active:scale-[0.98]"
+              >
+                <div
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${d.color}26`, color: d.color }}
+                >
+                  <Icon className="size-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{d.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {d.status === "overdue"
+                      ? "Overdue"
+                      : d.status === "due_soon"
+                        ? `Due day ${d.dueDay}`
+                        : d.paymentSchedule === "one_time"
+                          ? "Pay whenever"
+                          : d.dueDay
+                            ? `Due day ${d.dueDay}`
+                            : "Ongoing"}
+                  </p>
+                </div>
+                <p className="tabular-nums text-sm font-semibold">
+                  <AnimatedCurrency cents={d.remainingAmount} />
+                </p>
+              </Link>
+            );
+          })}
+        </section>
+      )}
+
       {data.topBudgets.length > 0 && (
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -268,7 +313,11 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: itemDelay(i) }}
             >
-              <TransactionRow transaction={tx} onDelete={() => removeTransaction(tx._id)} />
+              <TransactionRow
+                transaction={tx}
+                onDelete={() => removeTransaction(tx._id)}
+                onChanged={() => invalidate.all()}
+              />
             </motion.div>
           ))}
         </div>

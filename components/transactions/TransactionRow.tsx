@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeftRight, Banknote, MoreVertical, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeftRight, Banknote, MapPin, MoreVertical, Trash2 } from "lucide-react";
 import { getIcon } from "@/lib/icon-map";
 import { formatCents } from "@/lib/utils/currency";
 import {
@@ -9,15 +10,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EditLocationDialog } from "@/components/transactions/EditLocationDialog";
 import type { TransactionDTO } from "@/lib/types";
 
 export function TransactionRow({
   transaction,
   onDelete,
+  onChanged,
 }: {
   transaction: TransactionDTO;
   onDelete: () => void;
+  onChanged?: () => void;
 }) {
+  const [locationOpen, setLocationOpen] = useState(false);
   const isExpense = transaction.type === "expense";
   const isIncome = transaction.type === "income";
   const isMove = transaction.type === "transfer" || transaction.type === "atm_withdrawal";
@@ -40,6 +45,10 @@ export function TransactionRow({
       : "Transfer"
     : transaction.accountId.name;
 
+  const locationLabel = [transaction.location?.city, transaction.location?.governorate]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div className="flex items-center gap-3 rounded-lg py-2.5 transition-colors active:bg-secondary/40">
       <div
@@ -53,6 +62,7 @@ export function TransactionRow({
         <p className="truncate text-xs text-muted-foreground">
           {subtitle}
           {transaction.note ? ` · ${transaction.note}` : ""}
+          {locationLabel ? ` · ${locationLabel}` : ""}
         </p>
       </div>
       <p
@@ -69,11 +79,21 @@ export function TransactionRow({
           <MoreVertical className="size-3.5" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setLocationOpen(true)}>
+            <MapPin className="size-4" /> {locationLabel ? "Edit location" : "Set location"}
+          </DropdownMenuItem>
           <DropdownMenuItem variant="destructive" onClick={onDelete}>
             <Trash2 className="size-4" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <EditLocationDialog
+        transaction={transaction}
+        open={locationOpen}
+        onOpenChange={setLocationOpen}
+        onSaved={() => onChanged?.()}
+      />
     </div>
   );
 }

@@ -46,6 +46,13 @@ export interface RefLite {
   color?: string;
 }
 
+export interface TransactionLocationDTO {
+  city?: string;
+  governorate?: string;
+  lat?: number;
+  lon?: number;
+}
+
 export interface TransactionDTO {
   _id: string;
   type: TransactionType;
@@ -56,6 +63,7 @@ export interface TransactionDTO {
   date: string;
   note?: string;
   merchant?: string;
+  location?: TransactionLocationDTO;
 }
 
 export interface BudgetStatusDTO {
@@ -101,6 +109,7 @@ export interface DashboardSummaryDTO {
   recentTransactions: TransactionDTO[];
   topBudgets: BudgetStatusDTO[];
   topGoals: GoalDTO[];
+  topDebts: DebtDTO[];
   upcomingDebts: DebtDTO[];
   creditCardAlerts: CreditCardAlertDTO[];
 }

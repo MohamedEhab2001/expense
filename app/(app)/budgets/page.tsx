@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { StaggerItem } from "@/components/shared/StaggerItem";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { BudgetForm } from "@/components/budgets/BudgetForm";
+import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
+import { formatCents } from "@/lib/utils/currency";
 import { useBudgets, useInvalidate } from "@/lib/queries";
 import type { BudgetStatusDTO } from "@/lib/types";
 
@@ -16,6 +18,9 @@ export default function BudgetsPage() {
   const invalidate = useInvalidate();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<BudgetStatusDTO | undefined>(undefined);
+
+  const totalBudgeted = data?.budgets.reduce((s, b) => s + b.budgeted, 0) ?? 0;
+  const totalSpent = data?.budgets.reduce((s, b) => s + b.spent, 0) ?? 0;
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-6">
@@ -33,6 +38,15 @@ export default function BudgetsPage() {
           </Button>
         )}
       </div>
+
+      {!isLoading && data && data.budgets.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Total spent this month</p>
+          <p className="text-2xl font-semibold tabular-nums">
+            <AnimatedCurrency cents={totalSpent} /> <span className="text-base font-normal text-muted-foreground">/ {formatCents(totalBudgeted)}</span>
+          </p>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex flex-col gap-2">

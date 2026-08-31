@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, Banknote, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeftRight, Banknote, MapPin, TrendingDown, TrendingUp } from "lucide-react";
 import { postJSON } from "@/lib/fetcher";
 import { toCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAccounts, useCategories, useInvalidate } from "@/lib/queries";
+import { useDetectedLocation } from "@/lib/hooks/useDetectedLocation";
 import type { TransactionType } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -43,6 +44,22 @@ export default function NewTransactionPage() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const { location: detectedLocation, status: locationStatus } = useDetectedLocation();
+  const [city, setCity] = useState("");
+  const [governorate, setGovernorate] = useState("");
+  const [coords, setCoords] = useState<{ lat?: number; lon?: number }>({});
+
+  // Fills the (still-editable) location fields once GPS/reverse-geocoding resolves, without
+  // clobbering anything the user already typed.
+  useEffect(() => {
+    if (detectedLocation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from an external system (geolocation) on resolve
+      setCity((c) => c || detectedLocation.city || "");
+      setGovernorate((g) => g || detectedLocation.governorate || "");
+      setCoords({ lat: detectedLocation.lat, lon: detectedLocation.lon });
+    }
+  }, [detectedLocation]);
 
   const relevantCategories = useMemo(
     () => categories?.filter((c) => c.kind === (type === "income" ? "income" : "expense")) ?? [],
@@ -70,6 +87,10 @@ export default function NewTransactionPage() {
         ...(needsLinkedAccount ? { linkedAccountId } : {}),
         date,
         note: note.trim() || undefined,
+        location:
+          city.trim() || governorate.trim()
+            ? { city: city.trim() || undefined, governorate: governorate.trim() || undefined, ...coords }
+            : undefined,
       });
       toast.success("Transaction saved");
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -200,6 +221,30 @@ export default function NewTransactionPage() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tx-note">Note (optional)</Label>
             <Input id="tx-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was this for?" />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <MapPin className="size-3.5 text-muted-foreground" />
+              <Label>Location (optional)</Label>
+              {locationStatus === "locating" && (
+                <span className="text-xs text-muted-foreground">Detecting…</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                aria-label="City"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="City"
+              />
+              <Input
+                aria-label="Governorate"
+                value={governorate}
+                onChange={(e) => setGovernorate(e.target.value)}
+                placeholder="Governorate"
+              />
+            </div>
           </div>
 
           <Button onClick={submit} disabled={saving} size="lg" className="mt-2">

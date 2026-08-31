@@ -14,6 +14,15 @@ const TransactionSchema = new Schema(
     date: { type: Date, required: true, default: Date.now },
     note: { type: String, trim: true },
     merchant: { type: String, trim: true },
+    location: {
+      _id: false,
+      type: {
+        city: { type: String, trim: true },
+        governorate: { type: String, trim: true },
+        lat: { type: Number },
+        lon: { type: Number },
+      },
+    },
   },
   { timestamps: true }
 );

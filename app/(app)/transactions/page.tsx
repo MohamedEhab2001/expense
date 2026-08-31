@@ -93,7 +93,11 @@ export default function TransactionsPage() {
             <div className="divide-y divide-border">
               {txs.map((tx) => (
                 <StaggerItem key={tx._id} index={idx++}>
-                  <TransactionRow transaction={tx} onDelete={() => remove(tx._id)} />
+                  <TransactionRow
+                    transaction={tx}
+                    onDelete={() => remove(tx._id)}
+                    onChanged={() => invalidate.all()}
+                  />
                 </StaggerItem>
               ))}
             </div>

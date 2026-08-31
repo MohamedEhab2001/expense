@@ -101,6 +101,20 @@ export async function updateTransaction(id: string, input: CreateTransactionInpu
   }
 }
 
+export async function updateTransactionLocation(
+  id: string,
+  location: { city?: string; governorate?: string }
+) {
+  await connectDB();
+  const updated = await Transaction.findByIdAndUpdate(
+    id,
+    { location: { city: location.city, governorate: location.governorate } },
+    { new: true }
+  ).lean();
+  if (!updated) throw new Error("Transaction not found");
+  return updated;
+}
+
 export async function deleteTransaction(id: string) {
   await connectDB();
   const session = await mongoose.startSession();
