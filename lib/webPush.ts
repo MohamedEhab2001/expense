@@ -1,17 +1,12 @@
 import "server-only";
 import webPush from "web-push";
+import { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } from "@/lib/pushConfig";
 
 let configured = false;
 
 function ensureConfigured() {
   if (configured) return;
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
-  if (!publicKey || !privateKey || !subject) {
-    throw new Error("VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT env vars are not set");
-  }
-  webPush.setVapidDetails(subject, publicKey, privateKey);
+  webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
   configured = true;
 }
 

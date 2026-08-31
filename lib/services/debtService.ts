@@ -20,18 +20,26 @@ export function getDebtStatus(
   return "upcoming";
 }
 
+// A linked debt follows its account's currency; `d.currency` is only the fallback.
+function withEffectiveCurrency<T extends { currency?: string; linkedAccountId?: unknown }>(d: T) {
+  const linked = d.linkedAccountId as { currency?: string } | undefined;
+  return { ...d, currency: linked?.currency ?? d.currency ?? "EGP" };
+}
+
 export async function listDebts(includeArchived = false) {
   await connectDB();
   const filter = includeArchived ? {} : { isArchived: false };
-  const debts = await Debt.find(filter).populate("linkedAccountId", "name").sort({ dueDay: 1 }).lean();
-  return debts.map((d) => ({ ...d, status: getDebtStatus(d) }));
+  const debts = await Debt.find(filter).populate("linkedAccountId", "name currency").sort({ dueDay: 1 }).lean();
+  return debts.map((d) => ({ ...withEffectiveCurrency(d), status: getDebtStatus(d) }));
 }
 
 export async function getUpcomingDebts() {
   await connectDB();
-  const debts = await Debt.find({ isArchived: false, isPaidOff: false }).populate("linkedAccountId", "name").lean();
+  const debts = await Debt.find({ isArchived: false, isPaidOff: false })
+    .populate("linkedAccountId", "name currency")
+    .lean();
   return debts
-    .map((d) => ({ ...d, status: getDebtStatus(d) }))
+    .map((d) => ({ ...withEffectiveCurrency(d), status: getDebtStatus(d) }))
     .filter((d) => d.status === "overdue" || d.status === "due_soon")
     .sort((a, b) => (a.status === "overdue" ? -1 : 1));
 }

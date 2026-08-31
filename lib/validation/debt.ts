@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { accountCurrencySchema } from "@/lib/validation/account";
+import { DEFAULT_CURRENCY } from "@/lib/utils/currency";
 
 const debtBase = z.object({
   name: z.string().trim().min(1).max(60),
@@ -6,6 +8,8 @@ const debtBase = z.object({
   paymentSchedule: z.enum(["monthly", "one_time"]).default("monthly"),
   totalAmount: z.number().int().positive().optional(),
   remainingAmount: z.number().int().min(0),
+  // Ignored once linkedAccountId is set — the linked account's currency wins.
+  currency: accountCurrencySchema.default(DEFAULT_CURRENCY),
   monthlyPayment: z.number().int().positive().optional(),
   dueDay: z.number().int().min(1).max(31).optional(),
   linkedAccountId: z.string().min(1).optional(),

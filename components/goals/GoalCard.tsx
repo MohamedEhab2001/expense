@@ -73,7 +73,8 @@ export function GoalCard({
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{goal.name}</p>
           <p className="text-xs text-muted-foreground">
-            <AnimatedCurrency cents={goal.currentAmount} /> of {formatCents(goal.targetAmount)}
+            <AnimatedCurrency cents={goal.currentAmount} currency={goal.currency} /> of{" "}
+            {formatCents(goal.targetAmount, goal.currency)}
             {goal.targetDate ? ` · by ${format(new Date(goal.targetDate), "MMM d, yyyy")}` : ""}
             {goal.linkedAccountId ? ` · linked to ${goal.linkedAccountId.name}` : ""}
           </p>

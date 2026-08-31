@@ -7,6 +7,7 @@ import { AlertTriangle, CreditCard, Flame, Leaf } from "lucide-react";
 import { formatCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
 import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
+import { BalancesByCurrency } from "@/components/shared/BalancesByCurrency";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -116,9 +117,9 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
-        <p className="text-3xl font-semibold tabular-nums">
-          <AnimatedCurrency cents={includeSavings ? data.totalBalance : data.totalBalanceExcludingSavings} />
-        </p>
+        <BalancesByCurrency
+          balances={includeSavings ? data.balancesByCurrency : data.balancesByCurrencyExcludingSavings}
+        />
       </header>
 
       {(data.streaks.logStreak > 0 || data.streaks.noSpendStreak > 0) && (
@@ -184,7 +185,7 @@ export default function DashboardPage() {
                 {d.status === "overdue" ? "Overdue" : `Due day ${d.dueDay}`}
               </span>{" "}
               — {d.name}
-              {d.monthlyPayment ? ` · ${formatCents(d.monthlyPayment)}` : ""}
+              {d.monthlyPayment ? ` · ${formatCents(d.monthlyPayment, d.currency)}` : ""}
             </p>
           ))}
         </Link>
@@ -206,7 +207,7 @@ export default function DashboardPage() {
               <span className={c.status === "overdue" ? "font-medium text-destructive" : "font-medium text-warning"}>
                 {c.status === "overdue" ? "Overdue" : `Due day ${c.statementDay}`}
               </span>{" "}
-              — {c.name} · {formatCents(Math.max(0, -c.balance))} owed
+              — {c.name} · {formatCents(Math.max(0, -c.balance), c.currency)} owed
             </p>
           ))}
         </Link>
@@ -237,10 +238,10 @@ export default function DashboardPage() {
                   <p className="tabular-nums text-sm text-muted-foreground">
                     {a.type === "credit_card" ? (
                       <>
-                        <AnimatedCurrency cents={Math.max(0, -a.balance)} /> owed
+                        <AnimatedCurrency cents={Math.max(0, -a.balance)} currency={a.currency} /> owed
                       </>
                     ) : (
-                      <AnimatedCurrency cents={a.balance} />
+                      <AnimatedCurrency cents={a.balance} currency={a.currency} />
                     )}
                   </p>
                 </Link>
@@ -287,7 +288,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <p className="tabular-nums text-sm font-semibold">
-                  <AnimatedCurrency cents={d.remainingAmount} />
+                  <AnimatedCurrency cents={d.remainingAmount} currency={d.currency} />
                 </p>
               </Link>
             );
@@ -332,7 +333,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                    <AnimatedCurrency cents={g.currentAmount} /> / {formatCents(g.targetAmount)}
+                    <AnimatedCurrency cents={g.currentAmount} currency={g.currency} /> / {formatCents(g.targetAmount, g.currency)}
                   </p>
                 </div>
               );

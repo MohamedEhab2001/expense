@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasTransactionOnDate } from "@/lib/services/transactionService";
 import { sendPushToAll } from "@/lib/webPush";
+import { CRON_SECRET } from "@/lib/pushConfig";
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  const authorized =
+    req.headers.get("authorization") === `Bearer ${CRON_SECRET}` ||
+    req.nextUrl.searchParams.get("secret") === CRON_SECRET;
+  if (!authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -22,7 +22,7 @@ import { IconPicker, ColorPicker } from "@/components/shared/IconColorPicker";
 import { GOAL_ICON_OPTIONS } from "@/lib/icon-map";
 import { postJSON } from "@/lib/fetcher";
 import { useAccounts } from "@/lib/queries";
-import { toCents } from "@/lib/utils/currency";
+import { toCents, CURRENCY_OPTIONS, DEFAULT_CURRENCY } from "@/lib/utils/currency";
 import type { GoalDTO } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -43,6 +43,7 @@ export function GoalForm({
   const [targetAmount, setTargetAmount] = useState(goal ? String(goal.targetAmount / 100) : "");
   const [targetDate, setTargetDate] = useState(goal?.targetDate ? goal.targetDate.slice(0, 10) : "");
   const [linkedAccountId, setLinkedAccountId] = useState<string>(goal?.linkedAccountId?._id ?? "none");
+  const [currency, setCurrency] = useState(goal?.currency ?? DEFAULT_CURRENCY);
   const [icon, setIcon] = useState(goal?.icon ?? "target");
   const [color, setColor] = useState(goal?.color ?? "#34D399");
   const [saving, setSaving] = useState(false);
@@ -58,6 +59,7 @@ export function GoalForm({
         name: name.trim(),
         targetAmount: cents,
         targetDate: targetDate || undefined,
+        currency,
         linkedAccountId: linkedAccountId === "none" ? undefined : linkedAccountId,
         icon,
         color,
@@ -75,6 +77,7 @@ export function GoalForm({
         setTargetAmount("");
         setTargetDate("");
         setLinkedAccountId("none");
+        setCurrency(DEFAULT_CURRENCY);
       }
     } catch (e) {
       toast.error((e as Error).message);
@@ -128,6 +131,28 @@ export function GoalForm({
               </SelectContent>
             </Select>
           </div>
+
+          {linkedAccountId === "none" ? (
+            <div className="flex flex-col gap-1.5">
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={(v) => setCurrency(v ?? DEFAULT_CURRENCY)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_OPTIONS.map(({ code, label }) => (
+                    <SelectItem key={code} value={code}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Uses {accounts?.find((a) => a._id === linkedAccountId)?.name ?? "the linked account"}&apos;s currency.
+            </p>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label>Icon</Label>

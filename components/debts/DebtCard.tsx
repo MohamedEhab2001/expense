@@ -116,7 +116,11 @@ export function DebtCard({
           <p className="truncate font-medium">{debt.name}</p>
           <p className="text-xs text-muted-foreground">
             {TYPE_LABELS[debt.type]}
-            {isOneTime ? " · pay whenever" : debt.monthlyPayment ? ` · ${formatCents(debt.monthlyPayment)}/mo` : ""}
+            {isOneTime
+              ? " · pay whenever"
+              : debt.monthlyPayment
+                ? ` · ${formatCents(debt.monthlyPayment, debt.currency)}/mo`
+                : ""}
             {debt.linkedAccountId ? ` · from ${debt.linkedAccountId.name}` : ""}
           </p>
         </div>
@@ -148,13 +152,14 @@ export function DebtCard({
             />
           </div>
           <p className="text-xs tabular-nums text-muted-foreground">
-            <AnimatedCurrency cents={debt.remainingAmount} /> left of {formatCents(debt.totalAmount!)}
+            <AnimatedCurrency cents={debt.remainingAmount} currency={debt.currency} /> left of{" "}
+            {formatCents(debt.totalAmount!, debt.currency)}
           </p>
         </div>
       )}
       {progress === null && (
         <p className="text-xs tabular-nums text-muted-foreground">
-          <AnimatedCurrency cents={debt.remainingAmount} /> balance
+          <AnimatedCurrency cents={debt.remainingAmount} currency={debt.currency} /> balance
         </p>
       )}
 

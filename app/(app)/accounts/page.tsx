@@ -6,11 +6,12 @@ import { postJSON } from "@/lib/fetcher";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
+import { BalancesByCurrency } from "@/components/shared/BalancesByCurrency";
 import { StaggerItem } from "@/components/shared/StaggerItem";
 import { AccountCard } from "@/components/accounts/AccountCard";
 import { AccountForm } from "@/components/accounts/AccountForm";
 import { useAccounts, useInvalidate } from "@/lib/queries";
+import { groupByCurrency } from "@/lib/utils/currency";
 import type { AccountDTO } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -20,7 +21,9 @@ export default function AccountsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccountDTO | undefined>(undefined);
 
-  const total = accounts?.reduce((s, a) => s + a.balance, 0) ?? 0;
+  const balancesByCurrency = accounts
+    ? groupByCurrency(accounts, (a) => a.currency, (a) => a.balance)
+    : [];
 
   async function archive(id: string) {
     try {
@@ -57,10 +60,7 @@ export default function AccountsPage() {
 
       {!isLoading && accounts && accounts.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Total across accounts</p>
-          <p className="text-2xl font-semibold tabular-nums">
-            <AnimatedCurrency cents={total} />
-          </p>
+          <BalancesByCurrency balances={balancesByCurrency} label="Total across accounts" />
         </div>
       )}
 

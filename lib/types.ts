@@ -23,6 +23,7 @@ export interface AccountDTO {
 export interface CreditCardAlertDTO {
   _id: string;
   name: string;
+  currency: string;
   balance: number;
   creditLimit?: number;
   statementDay: number;
@@ -80,6 +81,7 @@ export interface GoalDTO {
   name: string;
   targetAmount: number;
   currentAmount: number;
+  currency: string;
   targetDate?: string;
   linkedAccountId?: RefLite;
   icon: string;
@@ -113,10 +115,17 @@ export interface SpendingPaceDTO {
   percentOfPace: number | null;
 }
 
+export interface CurrencyBalanceDTO {
+  currency: string;
+  amount: number;
+}
+
 export interface DashboardSummaryDTO {
   accounts: AccountDTO[];
   totalBalance: number;
   totalBalanceExcludingSavings: number;
+  balancesByCurrency: CurrencyBalanceDTO[];
+  balancesByCurrencyExcludingSavings: CurrencyBalanceDTO[];
   recentTransactions: TransactionDTO[];
   topBudgets: BudgetStatusDTO[];
   topGoals: GoalDTO[];
@@ -177,6 +186,7 @@ export interface DebtDTO {
   paymentSchedule: DebtPaymentSchedule;
   totalAmount?: number;
   remainingAmount: number;
+  currency: string;
   monthlyPayment?: number;
   dueDay?: number;
   linkedAccountId?: RefLite;

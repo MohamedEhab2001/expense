@@ -1,5 +1,7 @@
 "use client";
 
+import { VAPID_PUBLIC_KEY } from "@/lib/pushConfig";
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -18,16 +20,13 @@ export async function getExistingPushSubscription(): Promise<PushSubscription | 
 }
 
 export async function subscribeToPush(): Promise<void> {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  if (!publicKey) throw new Error("Push notifications are not configured for this deployment");
-
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Notification permission was not granted");
 
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
   });
 
   const json = subscription.toJSON();

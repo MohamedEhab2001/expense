@@ -6,6 +6,8 @@ const SavingsGoalSchema = new Schema(
     targetAmount: { type: Number, required: true, min: 1 }, // cents
     targetDate: { type: Date },
     currentAmount: { type: Number, default: 0 }, // cents, virtual mode only
+    // Only used when linkedAccountId is unset — a linked goal follows that account's currency.
+    currency: { type: String, default: "EGP" },
     linkedAccountId: { type: Schema.Types.ObjectId, ref: "Account" },
     icon: { type: String, default: "target" },
     color: { type: String, default: "#34D399" },

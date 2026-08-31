@@ -7,6 +7,8 @@ const DebtSchema = new Schema(
     paymentSchedule: { type: String, enum: ["monthly", "one_time"], default: "monthly" },
     totalAmount: { type: Number }, // cents, optional (credit cards may not have a fixed total)
     remainingAmount: { type: Number, required: true, min: 0 }, // cents
+    // Only used when linkedAccountId is unset — a linked debt follows that account's currency.
+    currency: { type: String, default: "EGP" },
     monthlyPayment: { type: Number, min: 1 }, // cents, required only when paymentSchedule is "monthly"
     dueDay: { type: Number, min: 1, max: 31 }, // required only when paymentSchedule is "monthly"
     linkedAccountId: { type: Schema.Types.ObjectId, ref: "Account" },

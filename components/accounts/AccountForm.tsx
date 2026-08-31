@@ -21,7 +21,7 @@ import {
 import { IconPicker, ColorPicker } from "@/components/shared/IconColorPicker";
 import { ACCOUNT_ICON_OPTIONS } from "@/lib/icon-map";
 import { postJSON } from "@/lib/fetcher";
-import { toCents } from "@/lib/utils/currency";
+import { toCents, CURRENCY_OPTIONS, DEFAULT_CURRENCY } from "@/lib/utils/currency";
 import type { AccountDTO, AccountType } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -47,6 +47,7 @@ export function AccountForm({
   const isEdit = !!account;
   const [name, setName] = useState(account?.name ?? "");
   const [type, setType] = useState<AccountType>(account?.type ?? "bank");
+  const [currency, setCurrency] = useState(account?.currency ?? DEFAULT_CURRENCY);
   const [balance, setBalance] = useState(account ? String(account.balance / 100) : "0");
   const [owed, setOwed] = useState(account ? String(Math.max(0, -account.balance) / 100) : "0");
   const [creditLimit, setCreditLimit] = useState(account?.creditLimit ? String(account.creditLimit / 100) : "");
@@ -71,6 +72,7 @@ export function AccountForm({
       const payload = {
         name: name.trim(),
         type,
+        currency,
         balance: isCreditCard ? -toCents(Number(owed) || 0) : toCents(Number(balance) || 0),
         ...(isCreditCard
           ? {
@@ -125,6 +127,22 @@ export function AccountForm({
             </Select>
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <Label>Currency</Label>
+            <Select value={currency} onValueChange={(v) => setCurrency(v ?? DEFAULT_CURRENCY)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCY_OPTIONS.map(({ code, label }) => (
+                  <SelectItem key={code} value={code}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {isCreditCard ? (
             <>
               <div className="flex flex-col gap-1.5">
@@ -164,7 +182,10 @@ export function AccountForm({
             </>
           ) : (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="acc-balance">{isEdit ? "Balance" : "Starting balance"}</Label>
+              <Label htmlFor="acc-balance">
+                {isEdit ? "Balance" : "Starting balance"}
+                {currency === "Gold" ? " (grams)" : ""}
+              </Label>
               <Input
                 id="acc-balance"
                 type="number"

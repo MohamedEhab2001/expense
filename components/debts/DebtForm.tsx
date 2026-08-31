@@ -21,7 +21,7 @@ import {
 import { IconPicker, ColorPicker } from "@/components/shared/IconColorPicker";
 import { DEBT_ICON_OPTIONS } from "@/lib/icon-map";
 import { postJSON } from "@/lib/fetcher";
-import { toCents } from "@/lib/utils/currency";
+import { toCents, CURRENCY_OPTIONS, DEFAULT_CURRENCY } from "@/lib/utils/currency";
 import { useAccounts } from "@/lib/queries";
 import type { DebtDTO, DebtType, DebtPaymentSchedule } from "@/lib/types";
 import { toast } from "sonner";
@@ -59,6 +59,7 @@ export function DebtForm({
   const [monthlyPayment, setMonthlyPayment] = useState(debt?.monthlyPayment ? String(debt.monthlyPayment / 100) : "");
   const [dueDay, setDueDay] = useState(debt?.dueDay ? String(debt.dueDay) : "1");
   const [linkedAccountId, setLinkedAccountId] = useState(debt?.linkedAccountId?._id ?? "none");
+  const [currency, setCurrency] = useState(debt?.currency ?? DEFAULT_CURRENCY);
   const [icon, setIcon] = useState(debt?.icon ?? "credit-card");
   const [color, setColor] = useState(debt?.color ?? "#F87171");
   const [saving, setSaving] = useState(false);
@@ -87,6 +88,7 @@ export function DebtForm({
         paymentSchedule,
         totalAmount: totalAmount ? toCents(Number(totalAmount)) : undefined,
         remainingAmount: remaining,
+        currency,
         monthlyPayment: monthly,
         dueDay: day,
         linkedAccountId: linkedAccountId === "none" ? undefined : linkedAccountId,
@@ -222,6 +224,28 @@ export function DebtForm({
               </SelectContent>
             </Select>
           </div>
+
+          {linkedAccountId === "none" ? (
+            <div className="flex flex-col gap-1.5">
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={(v) => setCurrency(v ?? DEFAULT_CURRENCY)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_OPTIONS.map(({ code, label }) => (
+                    <SelectItem key={code} value={code}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Uses {accounts?.find((a) => a._id === linkedAccountId)?.name ?? "the linked account"}&apos;s currency.
+            </p>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label>Icon</Label>
