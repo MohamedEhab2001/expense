@@ -7,6 +7,8 @@ export const createAccountSchema = z.object({
   type: accountTypeSchema,
   currency: z.string().trim().length(3).default("EGP"),
   balance: z.number().int().default(0),
+  creditLimit: z.number().int().positive().optional(),
+  statementDay: z.number().int().min(1).max(31).default(25),
   icon: z.string().default("wallet"),
   color: z.string().default("#34D399"),
 });

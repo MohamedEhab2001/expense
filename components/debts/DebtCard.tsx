@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { MoreVertical, Pencil, Archive, Check } from "lucide-react";
 import { getIcon } from "@/lib/icon-map";
-import { formatCents } from "@/lib/utils/currency";
+import { formatCents, toCents } from "@/lib/utils/currency";
 import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -24,6 +25,7 @@ const TYPE_LABELS = {
 };
 
 function statusInfo(debt: DebtDTO) {
+  const isOneTime = debt.paymentSchedule === "one_time";
   switch (debt.status) {
     case "paid_off":
       return { label: "Paid off", className: "bg-secondary text-muted-foreground" };
@@ -34,7 +36,9 @@ function statusInfo(debt: DebtDTO) {
     case "due_soon":
       return { label: `Due day ${debt.dueDay}`, className: "bg-warning/15 text-warning" };
     default:
-      return { label: `Due day ${debt.dueDay}`, className: "bg-secondary text-muted-foreground" };
+      return isOneTime
+        ? { label: "Unpaid", className: "bg-secondary text-muted-foreground" }
+        : { label: `Due day ${debt.dueDay}`, className: "bg-secondary text-muted-foreground" };
   }
 }
 
@@ -48,7 +52,10 @@ export function DebtCard({
   onChanged: () => void;
 }) {
   const [paying, setPaying] = useState(false);
+  const [payingAmount, setPayingAmount] = useState(false);
+  const [amount, setAmount] = useState("");
   const Icon = getIcon(debt.icon);
+  const isOneTime = debt.paymentSchedule === "one_time";
   const status = statusInfo(debt);
   const progress =
     debt.totalAmount && debt.totalAmount > 0
@@ -79,6 +86,23 @@ export function DebtCard({
     }
   }
 
+  async function payAmount() {
+    const cents = toCents(Number(amount));
+    if (!cents || cents <= 0) return toast.error("Enter a valid amount");
+    setPaying(true);
+    try {
+      await postJSON(`/api/debts/${debt._id}/pay`, { amount: cents }, "POST");
+      toast.success("Payment recorded");
+      setPayingAmount(false);
+      setAmount("");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPaying(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-transform active:scale-[0.99]">
       <div className="flex items-start gap-3">
@@ -91,7 +115,8 @@ export function DebtCard({
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{debt.name}</p>
           <p className="text-xs text-muted-foreground">
-            {TYPE_LABELS[debt.type]} · {formatCents(debt.monthlyPayment)}/mo
+            {TYPE_LABELS[debt.type]}
+            {isOneTime ? " · pay whenever" : debt.monthlyPayment ? ` · ${formatCents(debt.monthlyPayment)}/mo` : ""}
             {debt.linkedAccountId ? ` · from ${debt.linkedAccountId.name}` : ""}
           </p>
         </div>
@@ -133,7 +158,29 @@ export function DebtCard({
         </p>
       )}
 
-      {canPay && (
+      {canPay && isOneTime && (
+        payingAmount ? (
+          <div className="flex gap-2">
+            <Input
+              autoFocus
+              type="number"
+              inputMode="decimal"
+              placeholder="Amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <Button onClick={payAmount} disabled={paying}>
+              {paying ? "Paying..." : "Pay"}
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setPayingAmount(true)}>
+            <Check className="size-4" /> Make a payment
+          </Button>
+        )
+      )}
+
+      {canPay && !isOneTime && (
         <Button size="sm" variant="outline" onClick={markPaid} disabled={paying}>
           <Check className="size-4" /> {paying ? "Marking..." : "Mark this month paid"}
         </Button>

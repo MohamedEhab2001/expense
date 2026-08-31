@@ -23,24 +23,28 @@ import { GOAL_ICON_OPTIONS } from "@/lib/icon-map";
 import { postJSON } from "@/lib/fetcher";
 import { useAccounts } from "@/lib/queries";
 import { toCents } from "@/lib/utils/currency";
+import type { GoalDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export function GoalForm({
+  goal,
   open,
   onOpenChange,
   onSaved,
 }: {
+  goal?: GoalDTO;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const isEdit = !!goal;
   const { data: accounts } = useAccounts();
-  const [name, setName] = useState("");
-  const [targetAmount, setTargetAmount] = useState("");
-  const [targetDate, setTargetDate] = useState("");
-  const [linkedAccountId, setLinkedAccountId] = useState<string>("none");
-  const [icon, setIcon] = useState("target");
-  const [color, setColor] = useState("#34D399");
+  const [name, setName] = useState(goal?.name ?? "");
+  const [targetAmount, setTargetAmount] = useState(goal ? String(goal.targetAmount / 100) : "");
+  const [targetDate, setTargetDate] = useState(goal?.targetDate ? goal.targetDate.slice(0, 10) : "");
+  const [linkedAccountId, setLinkedAccountId] = useState<string>(goal?.linkedAccountId?._id ?? "none");
+  const [icon, setIcon] = useState(goal?.icon ?? "target");
+  const [color, setColor] = useState(goal?.color ?? "#34D399");
   const [saving, setSaving] = useState(false);
 
   async function submit() {
@@ -50,21 +54,28 @@ export function GoalForm({
 
     setSaving(true);
     try {
-      await postJSON("/api/goals", {
+      const payload = {
         name: name.trim(),
         targetAmount: cents,
         targetDate: targetDate || undefined,
         linkedAccountId: linkedAccountId === "none" ? undefined : linkedAccountId,
         icon,
         color,
-      });
-      toast.success("Goal created");
+      };
+      if (isEdit) {
+        await postJSON(`/api/goals/${goal._id}`, payload, "PATCH");
+      } else {
+        await postJSON("/api/goals", payload);
+      }
+      toast.success(isEdit ? "Goal updated" : "Goal created");
       onSaved();
       onOpenChange(false);
-      setName("");
-      setTargetAmount("");
-      setTargetDate("");
-      setLinkedAccountId("none");
+      if (!isEdit) {
+        setName("");
+        setTargetAmount("");
+        setTargetDate("");
+        setLinkedAccountId("none");
+      }
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -76,7 +87,7 @@ export function GoalForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New savings goal</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit savings goal" : "New savings goal"}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 px-4">
@@ -131,7 +142,7 @@ export function GoalForm({
 
         <DialogFooter>
           <Button onClick={submit} disabled={saving} className="w-full">
-            {saving ? "Saving..." : "Create goal"}
+            {saving ? "Saving..." : isEdit ? "Save changes" : "Create goal"}
           </Button>
         </DialogFooter>
       </DialogContent>

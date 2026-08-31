@@ -2,17 +2,32 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { MoreVertical, Pencil, Archive } from "lucide-react";
 import { getIcon } from "@/lib/icon-map";
 import { formatCents, toCents } from "@/lib/utils/currency";
 import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { postJSON } from "@/lib/fetcher";
 import type { GoalDTO } from "@/lib/types";
 import { toast } from "sonner";
 
-export function GoalCard({ goal, onChanged }: { goal: GoalDTO; onChanged: () => void }) {
+export function GoalCard({
+  goal,
+  onEdit,
+  onChanged,
+}: {
+  goal: GoalDTO;
+  onEdit: () => void;
+  onChanged: () => void;
+}) {
   const [contributing, setContributing] = useState(false);
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,6 +51,16 @@ export function GoalCard({ goal, onChanged }: { goal: GoalDTO; onChanged: () => 
     }
   }
 
+  async function archive() {
+    try {
+      await postJSON(`/api/goals/${goal._id}`, {}, "DELETE");
+      toast.success("Archived");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-transform active:scale-[0.99]">
       <div className="flex items-center gap-3">
@@ -54,6 +79,20 @@ export function GoalCard({ goal, onChanged }: { goal: GoalDTO; onChanged: () => 
           </p>
         </div>
         <GoalProgressRing percent={percent} />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex size-7 items-center justify-center rounded-full text-muted-foreground active:bg-secondary">
+            <MoreVertical className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="size-4" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={archive}>
+              <Archive className="size-4" /> Archive
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {!goal.linkedAccountId && (

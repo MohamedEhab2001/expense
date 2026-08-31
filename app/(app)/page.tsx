@@ -1,17 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CreditCard } from "lucide-react";
 import { formatCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
 import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { postJSON } from "@/lib/fetcher";
 import { useDashboardSummary, useInvalidate } from "@/lib/queries";
 import { toast } from "sonner";
+
+const BALANCE_PREF_KEY = "dashboard-balance-includes-savings";
 
 function DashboardSkeleton() {
   return (
@@ -37,6 +41,19 @@ export default function DashboardPage() {
   const { data, isLoading } = useDashboardSummary();
   const invalidate = useInvalidate();
   const reduceMotion = useReducedMotion();
+  const [includeSavings, setIncludeSavings] = useState(false);
+
+  // Sync from localStorage after mount to avoid a server/client hydration mismatch.
+  useEffect(() => {
+    const stored = localStorage.getItem(BALANCE_PREF_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from localStorage, an external system, on mount
+    if (stored !== null) setIncludeSavings(stored === "true");
+  }, []);
+
+  function toggleIncludeSavings(value: boolean) {
+    setIncludeSavings(value);
+    localStorage.setItem(BALANCE_PREF_KEY, String(value));
+  }
 
   async function removeTransaction(id: string) {
     try {
@@ -73,10 +90,34 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6">
-      <header>
-        <p className="text-sm text-muted-foreground">Total balance</p>
+      <header className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {includeSavings ? "Total balance" : "Balance"}
+          </p>
+          <div className="flex rounded-full border border-border p-0.5 text-xs">
+            <button
+              onClick={() => toggleIncludeSavings(false)}
+              className={cn(
+                "rounded-full px-2.5 py-1 font-medium transition-colors",
+                !includeSavings ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              )}
+            >
+              Without savings
+            </button>
+            <button
+              onClick={() => toggleIncludeSavings(true)}
+              className={cn(
+                "rounded-full px-2.5 py-1 font-medium transition-colors",
+                includeSavings ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              )}
+            >
+              With savings
+            </button>
+          </div>
+        </div>
         <p className="text-3xl font-semibold tabular-nums">
-          <AnimatedCurrency cents={data.totalBalance} />
+          <AnimatedCurrency cents={includeSavings ? data.totalBalance : data.totalBalanceExcludingSavings} />
         </p>
       </header>
 
@@ -96,7 +137,30 @@ export default function DashboardPage() {
               <span className={d.status === "overdue" ? "font-medium text-destructive" : "font-medium text-warning"}>
                 {d.status === "overdue" ? "Overdue" : `Due day ${d.dueDay}`}
               </span>{" "}
-              — {d.name} · {formatCents(d.monthlyPayment)}
+              — {d.name}
+              {d.monthlyPayment ? ` · ${formatCents(d.monthlyPayment)}` : ""}
+            </p>
+          ))}
+        </Link>
+      )}
+
+      {data.creditCardAlerts.length > 0 && (
+        <Link
+          href="/accounts"
+          className="flex flex-col gap-2 rounded-xl border border-l-4 border-warning bg-card p-3 transition-transform active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-2 text-warning">
+            <CreditCard className="size-4" />
+            <p className="text-sm font-medium">
+              {data.creditCardAlerts.length} card payment{data.creditCardAlerts.length > 1 ? "s" : ""} due
+            </p>
+          </div>
+          {data.creditCardAlerts.map((c) => (
+            <p key={c._id} className="text-xs text-muted-foreground">
+              <span className={c.status === "overdue" ? "font-medium text-destructive" : "font-medium text-warning"}>
+                {c.status === "overdue" ? "Overdue" : `Due day ${c.statementDay}`}
+              </span>{" "}
+              — {c.name} · {formatCents(Math.max(0, -c.balance))} owed
             </p>
           ))}
         </Link>
@@ -125,7 +189,13 @@ export default function DashboardPage() {
                   </div>
                   <p className="truncate text-sm font-medium">{a.name}</p>
                   <p className="tabular-nums text-sm text-muted-foreground">
-                    <AnimatedCurrency cents={a.balance} />
+                    {a.type === "credit_card" ? (
+                      <>
+                        <AnimatedCurrency cents={Math.max(0, -a.balance)} /> owed
+                      </>
+                    ) : (
+                      <AnimatedCurrency cents={a.balance} />
+                    )}
                   </p>
                 </Link>
               </motion.div>

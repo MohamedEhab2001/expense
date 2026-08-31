@@ -10,6 +10,8 @@ import type {
   AnalyticsDTO,
   TransactionFilters,
   DebtDTO,
+  ExpensePeriod,
+  ExpenseSummaryDTO,
 } from "@/lib/types";
 
 export const queryKeys = {
@@ -98,6 +100,14 @@ export function useDebts() {
   return useQuery({
     queryKey: queryKeys.debts,
     queryFn: () => fetcher<DebtDTO[]>("/api/debts"),
+  });
+}
+
+export function useExpenseSummary(period: ExpensePeriod, date: Date) {
+  const dateKey = date.toISOString().slice(0, 10);
+  return useQuery({
+    queryKey: ["expenseSummary", period, dateKey],
+    queryFn: () => fetcher<ExpenseSummaryDTO>(`/api/analytics/expenses?period=${period}&date=${dateKey}`),
   });
 }
 

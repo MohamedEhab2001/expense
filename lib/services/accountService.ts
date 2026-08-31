@@ -29,3 +29,26 @@ export async function archiveAccount(id: string) {
   await connectDB();
   return Account.findByIdAndUpdate(id, { isArchived: true }, { new: true }).lean();
 }
+
+export type CreditCardStatus = "overdue" | "due_soon" | "upcoming";
+
+function getCreditCardStatus(statementDay: number, now = new Date()): CreditCardStatus {
+  const daysUntilDue = statementDay - now.getDate();
+  if (daysUntilDue < 0) return "overdue";
+  if (daysUntilDue <= 7) return "due_soon";
+  return "upcoming";
+}
+
+export async function getCreditCardAlerts() {
+  await connectDB();
+  const cards = await Account.find({
+    type: "credit_card",
+    isArchived: false,
+    balance: { $lt: 0 },
+  }).lean();
+
+  return cards
+    .map((c) => ({ ...c, status: getCreditCardStatus(c.statementDay ?? 25) }))
+    .filter((c) => c.status === "overdue" || c.status === "due_soon")
+    .sort((a, b) => (a.status === "overdue" ? -1 : 1));
+}

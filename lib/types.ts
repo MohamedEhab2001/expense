@@ -3,6 +3,8 @@ export type TransactionType = "expense" | "income" | "transfer" | "atm_withdrawa
 export type CategoryKind = "expense" | "income";
 export type DebtType = "installment" | "debt" | "credit_card";
 export type DebtStatus = "paid_off" | "paid" | "overdue" | "due_soon" | "upcoming";
+export type DebtPaymentSchedule = "monthly" | "one_time";
+export type CreditCardStatus = "overdue" | "due_soon" | "upcoming";
 
 export interface AccountDTO {
   _id: string;
@@ -10,10 +12,21 @@ export interface AccountDTO {
   type: AccountType;
   currency: string;
   balance: number;
+  creditLimit?: number;
+  statementDay?: number;
   icon: string;
   color: string;
   isArchived: boolean;
   order: number;
+}
+
+export interface CreditCardAlertDTO {
+  _id: string;
+  name: string;
+  balance: number;
+  creditLimit?: number;
+  statementDay: number;
+  status: CreditCardStatus;
 }
 
 export interface CategoryDTO {
@@ -84,10 +97,12 @@ export interface AIInsightDTO {
 export interface DashboardSummaryDTO {
   accounts: AccountDTO[];
   totalBalance: number;
+  totalBalanceExcludingSavings: number;
   recentTransactions: TransactionDTO[];
   topBudgets: BudgetStatusDTO[];
   topGoals: GoalDTO[];
   upcomingDebts: DebtDTO[];
+  creditCardAlerts: CreditCardAlertDTO[];
 }
 
 export interface CategoryBreakdownItemDTO {
@@ -110,14 +125,32 @@ export interface AnalyticsDTO {
   trend: MonthlyTrendItemDTO[];
 }
 
+export type ExpensePeriod = "day" | "month" | "quarter" | "year";
+
+export interface ExpenseBreakdownBarDTO {
+  label: string;
+  amount: number;
+  color?: string;
+}
+
+export interface ExpenseSummaryDTO {
+  period: ExpensePeriod;
+  date: string;
+  rangeLabel: string;
+  total: number;
+  previousTotal: number;
+  breakdown: ExpenseBreakdownBarDTO[];
+}
+
 export interface DebtDTO {
   _id: string;
   name: string;
   type: DebtType;
+  paymentSchedule: DebtPaymentSchedule;
   totalAmount?: number;
   remainingAmount: number;
-  monthlyPayment: number;
-  dueDay: number;
+  monthlyPayment?: number;
+  dueDay?: number;
   linkedAccountId?: RefLite;
   lastPaidMonth?: string;
   icon: string;

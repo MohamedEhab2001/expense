@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { InsightCard } from "@/components/insights/InsightCard";
 import { CategoryBreakdownChart } from "@/components/insights/CategoryBreakdownChart";
 import { TrendChart } from "@/components/insights/TrendChart";
+import { ExpensePeriodSummary } from "@/components/insights/ExpensePeriodSummary";
 import { useInsightsHistory, useInvalidate, useAnalytics } from "@/lib/queries";
 import type { AIInsightDTO } from "@/lib/types";
 import { toast } from "sonner";
@@ -38,6 +39,8 @@ export default function InsightsPage() {
   return (
     <div className="flex flex-col gap-4 px-4 pt-6">
       <h1 className="text-xl font-semibold">Insights</h1>
+
+      <ExpensePeriodSummary />
 
       <section className="flex flex-col gap-2">
         <p className="text-sm font-medium text-muted-foreground">This month by category</p>

@@ -9,7 +9,9 @@ const AccountSchema = new Schema(
       required: true,
     },
     currency: { type: String, default: "EGP" },
-    balance: { type: Number, required: true, default: 0 }, // cents
+    balance: { type: Number, required: true, default: 0 }, // cents; negative = amount owed (credit cards)
+    creditLimit: { type: Number }, // cents, credit_card accounts only
+    statementDay: { type: Number, min: 1, max: 31, default: 25 }, // credit_card accounts only
     icon: { type: String, default: "wallet" },
     color: { type: String, default: "#34D399" },
     isArchived: { type: Boolean, default: false },

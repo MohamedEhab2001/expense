@@ -7,8 +7,12 @@ import type { createDebtSchema, updateDebtSchema } from "@/lib/validation/debt";
 
 export type DebtStatus = "paid_off" | "paid" | "overdue" | "due_soon" | "upcoming";
 
-export function getDebtStatus(debt: Pick<DebtDoc, "isPaidOff" | "lastPaidMonth" | "dueDay">, now = new Date()): DebtStatus {
+export function getDebtStatus(
+  debt: Pick<DebtDoc, "isPaidOff" | "lastPaidMonth" | "dueDay" | "paymentSchedule">,
+  now = new Date()
+): DebtStatus {
   if (debt.isPaidOff) return "paid_off";
+  if (debt.paymentSchedule === "one_time" || !debt.dueDay) return "upcoming";
   if (debt.lastPaidMonth === monthKey(now)) return "paid";
   const daysUntilDue = debt.dueDay - now.getDate();
   if (daysUntilDue < 0) return "overdue";
@@ -47,14 +51,22 @@ export async function archiveDebt(id: string) {
   return Debt.findByIdAndUpdate(id, { isArchived: true }, { new: true }).lean();
 }
 
-export async function markDebtPaid(id: string) {
+export async function markDebtPaid(id: string, amount?: number) {
   await connectDB();
   const debt = await Debt.findById(id);
   if (!debt) throw new Error("Debt not found");
 
-  debt.remainingAmount = Math.max(0, debt.remainingAmount - debt.monthlyPayment);
-  debt.lastPaidMonth = monthKey();
-  if (debt.totalAmount && debt.remainingAmount <= 0) {
+  if (debt.paymentSchedule === "one_time") {
+    if (!amount || amount <= 0) throw new Error("Enter a payment amount");
+    debt.remainingAmount = Math.max(0, debt.remainingAmount - amount);
+  } else {
+    const payment = amount ?? debt.monthlyPayment;
+    if (!payment) throw new Error("Debt has no monthly payment set");
+    debt.remainingAmount = Math.max(0, debt.remainingAmount - payment);
+    debt.lastPaidMonth = monthKey();
+  }
+
+  if (debt.remainingAmount <= 0) {
     debt.isPaidOff = true;
   }
   await debt.save();

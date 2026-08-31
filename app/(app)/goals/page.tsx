@@ -9,17 +9,25 @@ import { StaggerItem } from "@/components/shared/StaggerItem";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { GoalForm } from "@/components/goals/GoalForm";
 import { useGoals, useInvalidate } from "@/lib/queries";
+import type { GoalDTO } from "@/lib/types";
 
 export default function GoalsPage() {
   const { data: goals, isLoading } = useGoals();
   const invalidate = useInvalidate();
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<GoalDTO | undefined>(undefined);
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Savings goals</h1>
-        <Button size="sm" onClick={() => setFormOpen(true)}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(undefined);
+            setFormOpen(true);
+          }}
+        >
           <Plus className="size-4" /> Add
         </Button>
       </div>
@@ -42,12 +50,25 @@ export default function GoalsPage() {
       <div className="flex flex-col gap-3">
         {goals?.map((goal, i) => (
           <StaggerItem key={goal._id} index={i}>
-            <GoalCard goal={goal} onChanged={() => invalidate.all()} />
+            <GoalCard
+              goal={goal}
+              onEdit={() => {
+                setEditing(goal);
+                setFormOpen(true);
+              }}
+              onChanged={() => invalidate.all()}
+            />
           </StaggerItem>
         ))}
       </div>
 
-      <GoalForm open={formOpen} onOpenChange={setFormOpen} onSaved={() => invalidate.all()} />
+      <GoalForm
+        key={editing?._id ?? "new"}
+        goal={editing}
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSaved={() => invalidate.all()}
+      />
     </div>
   );
 }
