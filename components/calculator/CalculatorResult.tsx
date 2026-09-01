@@ -2,7 +2,6 @@ import { CheckCircle2, AlertTriangle, XCircle, Lightbulb } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCents } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
-import { AffordabilityChart } from "./AffordabilityChart";
 import type { CalculatorResultDTO } from "@/lib/types";
 
 const VERDICT_META: Record<
@@ -36,6 +35,19 @@ export function CalculatorResult({ result }: { result: CalculatorResultDTO }) {
   const meta = VERDICT_META[result.verdict];
   const Icon = meta.icon;
 
+  const rows: { label: string; amount: number; emphasis?: boolean }[] = [
+    { label: "Spendable balance (excl. savings)", amount: result.spendablePool },
+    { label: "Planned spending this month", amount: -result.totalPlannedSpending },
+  ];
+  if (result.transfersNetEffect !== 0) {
+    rows.push({
+      label: result.transfersNetEffect > 0 ? "Freed up from savings" : "Moved into savings",
+      amount: result.transfersNetEffect,
+    });
+  }
+  rows.push({ label: "This purchase", amount: -result.purchaseAmount });
+  rows.push({ label: "Left over", amount: result.finalSpendable, emphasis: true });
+
   return (
     <div className="flex flex-col gap-3">
       <div className={cn("flex items-center gap-3 rounded-xl border border-l-4 border-border bg-card p-4", meta.border)}>
@@ -46,23 +58,25 @@ export function CalculatorResult({ result }: { result: CalculatorResultDTO }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <Stat label="Current balance" value={formatCents(result.currentBalance, result.currency)} />
-        <Stat
-          label="Lowest projected"
-          value={formatCents(result.minProjectedBalance, result.currency)}
-          negative={result.minProjectedBalance < 0}
-        />
-        <Stat
-          label="Net monthly flow"
-          value={formatCents(result.netMonthlyFlow, result.currency)}
-          negative={result.netMonthlyFlow < 0}
-        />
-      </div>
-
       <div className="rounded-xl border border-border bg-card p-4">
-        <p className="mb-2 text-xs text-muted-foreground">Projected balance — with vs. without this purchase</p>
-        <AffordabilityChart data={result.projection} currency={result.currency} />
+        <p className="mb-3 text-xs text-muted-foreground">Breakdown</p>
+        <div className="flex flex-col gap-2">
+          {rows.map((row, i) => (
+            <div
+              key={i}
+              className={cn(
+                "flex items-center justify-between text-sm",
+                row.emphasis && "border-t border-border pt-2 font-semibold"
+              )}
+            >
+              <span className={row.emphasis ? "" : "text-muted-foreground"}>{row.label}</span>
+              <span className={cn("tabular-nums", row.amount < 0 && "text-destructive")}>
+                {row.amount >= 0 ? "+" : "−"}
+                {formatCents(Math.abs(row.amount), result.currency)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {result.ai && (
@@ -80,15 +94,6 @@ export function CalculatorResult({ result }: { result: CalculatorResultDTO }) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function Stat({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-3">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className={cn("mt-0.5 text-sm font-semibold tabular-nums", negative && "text-destructive")}>{value}</p>
     </div>
   );
 }

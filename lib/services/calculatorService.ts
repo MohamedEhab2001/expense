@@ -1,160 +1,82 @@
 import "server-only";
 import { z } from "zod";
-import { format, subMonths, addMonths } from "date-fns";
 import { connectDB } from "@/lib/db";
 import { openai, AI_MODEL } from "@/lib/openai";
-import Account from "@/models/Account";
-import Transaction from "@/models/Transaction";
-import { listDebts } from "./debtService";
-import { listGoals } from "./goalService";
-import { getMonthlyBudgetStatus } from "./budgetService";
-import { monthRange, monthKey } from "@/lib/utils/dates";
+import Account, { type Account as AccountDoc } from "@/models/Account";
+import Category from "@/models/Category";
+import { getUpcomingDebts } from "./debtService";
 import { fromCents } from "@/lib/utils/currency";
 import type { CalculatorInput } from "@/lib/validation/calculator";
-import type {
-  CalculatorProjectionPointDTO,
-  CalculatorResultDTO,
-  CalculatorVerdict,
-} from "@/lib/types";
+import type { CalculatorResultDTO, CalculatorVerdict } from "@/lib/types";
 
-interface Snapshot {
-  currency: string;
-  currentBalance: number; // cents, summed across all accounts in this currency
-  floor: number; // cents; most negative the pooled balance can safely go (credit limits)
-  avgMonthlyIncome: number;
-  avgMonthlyExpense: number;
-  recurringDebtTotal: number;
-  recurringGoalContribution: number;
-  topBudgetPressure: { category: string; percentUsed: number }[];
-  dueSoonDebts: { name: string; amount: number }[];
+interface PlanContext {
+  spendablePool: number;
+  transfersNetEffect: number;
+  totalPlannedSpending: number;
+  finalSpendable: number;
+  categoryBreakdown: { name: string; amount: number }[];
+  upcomingDebts: { name: string; amount: number }[];
 }
 
-// Average income/expense (in cents) for accounts of `currency`, over the 3 full months
-// before the current one — same "trailing 3 full months" window analyticsService.getSpendingPace
-// uses for its pace baseline.
-async function avgMonthlyFlow(currency: string) {
-  const now = new Date();
-  const totals = await Promise.all(
-    [1, 2, 3].map(async (n) => {
-      const { start, end } = monthRange(monthKey(subMonths(now, n)));
-      const rows = await Transaction.aggregate([
-        { $match: { date: { $gte: start, $lte: end }, type: { $in: ["income", "expense"] } } },
-        { $lookup: { from: "accounts", localField: "accountId", foreignField: "_id", as: "acc" } },
-        { $unwind: "$acc" },
-        { $match: { "acc.currency": currency } },
-        { $group: { _id: "$type", total: { $sum: "$amount" } } },
-      ]);
-      return {
-        income: rows.find((r) => r._id === "income")?.total ?? 0,
-        expense: rows.find((r) => r._id === "expense")?.total ?? 0,
-      };
-    })
-  );
-
-  const monthsWithActivity = totals.filter((t) => t.income > 0 || t.expense > 0);
-  const divisor = monthsWithActivity.length || 1;
-  return {
-    avgMonthlyIncome: totals.reduce((s, t) => s + t.income, 0) / divisor,
-    avgMonthlyExpense: totals.reduce((s, t) => s + t.expense, 0) / divisor,
-  };
-}
-
-async function buildSnapshot(currency: string): Promise<Snapshot> {
+async function buildContext(input: CalculatorInput): Promise<PlanContext> {
   await connectDB();
 
-  const [accounts, flow, debts, goals, budgets] = await Promise.all([
-    Account.find({ currency, isArchived: false }).lean(),
-    avgMonthlyFlow(currency),
-    listDebts(),
-    listGoals(),
-    getMonthlyBudgetStatus(),
+  const [accounts, categories, upcomingDebts] = await Promise.all([
+    Account.find({ currency: input.currency, isArchived: false }).lean(),
+    Category.find({ _id: { $in: input.categoryPlan.map((c) => c.categoryId) } }).lean(),
+    getUpcomingDebts(),
   ]);
 
-  const currentBalance = accounts.reduce((s, a) => s + a.balance, 0);
-  const floor = -accounts.reduce((s, a) => s + (a.type === "credit_card" ? (a.creditLimit ?? 0) : 0), 0);
+  const accountsById = new Map(accounts.map((a) => [String(a._id), a]));
 
-  const currencyDebts = debts.filter(
-    (d) => d.currency === currency && !d.isPaidOff && !d.isArchived
-  );
-  const recurringDebtTotal = currencyDebts
-    .filter((d) => d.paymentSchedule === "monthly")
-    .reduce((s, d) => s + (d.monthlyPayment ?? 0), 0);
-  const dueSoonDebts = currencyDebts
-    .filter((d) => d.status === "overdue" || d.status === "due_soon")
-    .map((d) => ({ name: d.name, amount: d.remainingAmount }));
+  // The user asked for savings to be excluded entirely — mirrors dashboardService's
+  // totalBalanceExcludingSavings: money sitting in a "savings" account isn't counted as
+  // available for this purchase.
+  const spendablePool = accounts
+    .filter((a) => a.type !== "savings")
+    .reduce((s, a) => s + a.balance, 0);
 
-  const now = new Date();
-  const recurringGoalContribution = goals
-    .filter((g) => g.currency === currency && !g.isArchived && g.targetDate)
-    .reduce((sum, g) => {
-      const monthsLeft = Math.max(
-        1,
-        Math.round((new Date(g.targetDate!).getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30))
-      );
-      const remaining = Math.max(0, g.targetAmount - g.currentAmount);
-      return sum + remaining / monthsLeft;
-    }, 0);
+  let transfersNetEffect = 0;
+  for (const t of input.transfers) {
+    const from = accountsById.get(t.fromAccountId);
+    const to = accountsById.get(t.toAccountId);
+    if (!from || !to) continue; // account isn't in this currency's pool — ignore
+    const fromSavings = isSavings(from);
+    const toSavings = isSavings(to);
+    if (fromSavings && !toSavings) transfersNetEffect += t.amount; // freed up from savings
+    else if (!fromSavings && toSavings) transfersNetEffect -= t.amount; // locked away into savings
+    // both spendable or both savings: no effect on the spendable pool
+  }
 
-  // Budgets aren't currency-tagged (categories are shared across accounts/currencies, same
-  // caveat as the rest of the app — see dashboardService's blended-totals note), so this is
-  // global context for the AI narrative rather than part of the currency-scoped math.
-  const topBudgetPressure = budgets
-    .filter((b) => b.percentUsed >= 80)
-    .sort((a, b) => b.percentUsed - a.percentUsed)
-    .slice(0, 3)
-    .map((b) => ({
-      category: (b.category as unknown as { name: string })?.name ?? "Unknown",
-      percentUsed: b.percentUsed,
-    }));
+  const totalPlannedSpending = input.categoryPlan.reduce((s, c) => s + c.amount, 0);
+  const finalSpendable = spendablePool + transfersNetEffect - totalPlannedSpending - input.purchaseAmount;
+
+  const categoriesById = new Map(categories.map((c) => [String(c._id), c]));
+  const categoryBreakdown = input.categoryPlan
+    .filter((c) => c.amount > 0)
+    .map((c) => ({ name: categoriesById.get(c.categoryId)?.name ?? "Uncategorized", amount: c.amount }))
+    .sort((a, b) => b.amount - a.amount);
 
   return {
-    currency,
-    currentBalance,
-    floor,
-    avgMonthlyIncome: flow.avgMonthlyIncome,
-    avgMonthlyExpense: flow.avgMonthlyExpense,
-    recurringDebtTotal,
-    recurringGoalContribution,
-    topBudgetPressure,
-    dueSoonDebts,
+    spendablePool,
+    transfersNetEffect,
+    totalPlannedSpending,
+    finalSpendable,
+    categoryBreakdown,
+    upcomingDebts: upcomingDebts
+      .filter((d) => d.currency === input.currency)
+      .map((d) => ({ name: d.name, amount: d.remainingAmount })),
   };
 }
 
-function simulate(input: CalculatorInput, snapshot: Snapshot) {
-  const oneTimeAmount = input.isRecurring ? 0 : input.amount;
-  const recurringAmount = input.isRecurring ? input.amount : 0;
-  const netMonthlyFlow =
-    snapshot.avgMonthlyIncome -
-    snapshot.avgMonthlyExpense -
-    snapshot.recurringDebtTotal -
-    snapshot.recurringGoalContribution;
+function isSavings(account: Pick<AccountDoc, "type">) {
+  return account.type === "savings";
+}
 
-  const now = new Date();
-  const projection: CalculatorProjectionPointDTO[] = [
-    { month: 0, label: "Now", withPurchase: snapshot.currentBalance - oneTimeAmount, baseline: snapshot.currentBalance },
-  ];
-
-  let withBalance = snapshot.currentBalance - oneTimeAmount;
-  let baseline = snapshot.currentBalance;
-  for (let i = 1; i <= input.months; i++) {
-    withBalance += netMonthlyFlow - recurringAmount;
-    baseline += netMonthlyFlow;
-    projection.push({ month: i, label: format(addMonths(now, i), "MMM"), withPurchase: withBalance, baseline });
-  }
-
-  const minProjectedBalance = Math.min(...projection.map((p) => p.withPurchase));
-  const safetyBuffer = snapshot.avgMonthlyExpense; // one month of typical spend, as a cushion
-
-  let verdict: CalculatorVerdict;
-  if (minProjectedBalance >= snapshot.floor + safetyBuffer) {
-    verdict = "go_for_it";
-  } else if (minProjectedBalance >= snapshot.floor) {
-    verdict = "doable_with_caution";
-  } else {
-    verdict = "wait";
-  }
-
-  return { projection, minProjectedBalance, netMonthlyFlow, verdict };
+function decideVerdict(spendablePool: number, finalSpendable: number): CalculatorVerdict {
+  if (finalSpendable < 0) return "wait";
+  const healthyMargin = spendablePool * 0.15; // keep at least ~15% of the pool as a cushion
+  return finalSpendable >= healthyMargin ? "go_for_it" : "doable_with_caution";
 }
 
 const aiVerdictSchema = z.object({
@@ -163,30 +85,23 @@ const aiVerdictSchema = z.object({
   tips: z.array(z.string()).min(1).max(4),
 });
 
-const SYSTEM_PROMPT = `You are a personal finance decision-making assistant embedded in a budgeting app. The user is deciding whether to make a hypothetical purchase. You are given a JSON digest of their real accounts, cash flow, debts, and savings goals in the relevant currency, a deterministic month-by-month balance projection with and without the purchase, and a pre-computed verdict. Write a short, concrete headline, a 2-4 sentence reasoning grounded in the actual numbers (name real debts/goals/budget categories it would affect), and 1-4 short actionable tips (e.g. wait N months, cut a specific category, split into installments). Do not repeat the raw JSON back. Do not give regulated investment or tax advice.`;
+const SYSTEM_PROMPT = `You are a personal finance decision-making assistant embedded in a budgeting app. The user has told you exactly how they plan to spend money by category this month, any transfers they plan to make between their own accounts (including into/out of savings), and a purchase they're considering. Savings account balances are intentionally excluded from what's "available" — treat that as final, don't suggest dipping into savings. You're given a JSON digest of that plan plus a pre-computed verdict. Write a short, concrete headline, a 2-4 sentence reasoning grounded in the actual numbers (name real categories, transfers, or debts due soon that affect the outcome), and 1-4 short actionable tips. Do not repeat the raw JSON back. Do not give regulated investment or tax advice.`;
 
-async function getAIVerdict(
-  input: CalculatorInput,
-  snapshot: Snapshot,
-  sim: ReturnType<typeof simulate>
-) {
+async function getAIVerdict(input: CalculatorInput, ctx: PlanContext, verdict: CalculatorVerdict) {
   const context = {
     request: {
       item: input.note || "this purchase",
-      amount: fromCents(input.amount),
+      amount: fromCents(input.purchaseAmount),
       currency: input.currency,
       recurring: input.isRecurring,
     },
-    currentBalance: fromCents(snapshot.currentBalance),
-    avgMonthlyIncome: fromCents(snapshot.avgMonthlyIncome),
-    avgMonthlyExpense: fromCents(snapshot.avgMonthlyExpense),
-    recurringDebtPayments: fromCents(snapshot.recurringDebtTotal),
-    recurringGoalContributions: fromCents(snapshot.recurringGoalContribution),
-    dueSoonDebts: snapshot.dueSoonDebts.map((d) => ({ name: d.name, amount: fromCents(d.amount) })),
-    overBudgetCategories: snapshot.topBudgetPressure,
-    deterministicVerdict: sim.verdict,
-    minProjectedBalance: fromCents(sim.minProjectedBalance),
-    projectionMonths: input.months,
+    spendablePool: fromCents(ctx.spendablePool),
+    plannedCategorySpending: ctx.categoryBreakdown.map((c) => ({ category: c.name, amount: fromCents(c.amount) })),
+    totalPlannedSpending: fromCents(ctx.totalPlannedSpending),
+    transfersNetEffectOnSpendable: fromCents(ctx.transfersNetEffect),
+    finalSpendable: fromCents(ctx.finalSpendable),
+    upcomingDebts: ctx.upcomingDebts.map((d) => ({ name: d.name, amount: fromCents(d.amount) })),
+    deterministicVerdict: verdict,
   };
 
   try {
@@ -207,24 +122,25 @@ async function getAIVerdict(
     if (!content) return null;
     return aiVerdictSchema.parse(JSON.parse(content));
   } catch {
-    // Deterministic numbers are still useful on their own — don't fail the whole request
-    // just because the OpenAI call errored or returned something unparseable.
+    // The deterministic numbers are still useful on their own — don't fail the whole
+    // request just because the OpenAI call errored or returned something unparseable.
     return null;
   }
 }
 
 export async function runCalculator(input: CalculatorInput): Promise<CalculatorResultDTO> {
-  const snapshot = await buildSnapshot(input.currency);
-  const sim = simulate(input, snapshot);
-  const ai = await getAIVerdict(input, snapshot, sim);
+  const ctx = await buildContext(input);
+  const verdict = decideVerdict(ctx.spendablePool, ctx.finalSpendable);
+  const ai = await getAIVerdict(input, ctx, verdict);
 
   return {
-    verdict: sim.verdict,
+    verdict,
     currency: input.currency,
-    currentBalance: snapshot.currentBalance,
-    minProjectedBalance: sim.minProjectedBalance,
-    netMonthlyFlow: sim.netMonthlyFlow,
-    projection: sim.projection,
+    spendablePool: ctx.spendablePool,
+    totalPlannedSpending: ctx.totalPlannedSpending,
+    transfersNetEffect: ctx.transfersNetEffect,
+    purchaseAmount: input.purchaseAmount,
+    finalSpendable: ctx.finalSpendable,
     ai,
   };
 }
