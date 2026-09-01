@@ -4,7 +4,7 @@ import { connectDB } from "@/lib/db";
 import { openai, AI_MODEL } from "@/lib/openai";
 import Account, { type Account as AccountDoc } from "@/models/Account";
 import Category from "@/models/Category";
-import { getUpcomingDebts } from "./debtService";
+import { listDebts } from "./debtService";
 import { fromCents } from "@/lib/utils/currency";
 import type { CalculatorInput } from "@/lib/validation/calculator";
 import type { CalculatorResultDTO, CalculatorVerdict } from "@/lib/types";
@@ -14,6 +14,8 @@ interface PlanContext {
   transfersNetEffect: number;
   transferBreakdown: { label: string; amount: number }[];
   totalPlannedSpending: number;
+  monthlyDebtTotal: number;
+  debtBreakdown: { name: string; amount: number }[];
   finalSpendable: number;
   categoryBreakdown: { name: string; amount: number }[];
   upcomingDebts: { name: string; amount: number }[];
@@ -22,11 +24,12 @@ interface PlanContext {
 async function buildContext(input: CalculatorInput): Promise<PlanContext> {
   await connectDB();
 
-  const [accounts, categories, upcomingDebts] = await Promise.all([
+  const [accounts, categories, debts] = await Promise.all([
     Account.find({ currency: input.currency, isArchived: false }).lean(),
     Category.find({ _id: { $in: input.categoryPlan.map((c) => c.categoryId) } }).lean(),
-    getUpcomingDebts(),
+    listDebts(),
   ]);
+  const currencyDebts = debts.filter((d) => d.currency === input.currency);
 
   const accountsById = new Map(accounts.map((a) => [String(a._id), a]));
 
@@ -57,7 +60,22 @@ async function buildContext(input: CalculatorInput): Promise<PlanContext> {
   }
 
   const totalPlannedSpending = input.categoryPlan.reduce((s, c) => s + c.amount, 0);
-  const finalSpendable = spendablePool + transfersNetEffect - totalPlannedSpending - input.purchaseAmount;
+
+  // Fixed monthly debt payments (loans, installments, recurring credit card minimums) are a
+  // committed cost the same as planned category spending — a debt already paid this cycle or
+  // paid off entirely isn't due again, so it's excluded.
+  const monthlyDebts = currencyDebts.filter(
+    (d) =>
+      d.paymentSchedule === "monthly" &&
+      d.status !== "paid" &&
+      d.status !== "paid_off" &&
+      (d.monthlyPayment ?? 0) > 0
+  );
+  const monthlyDebtTotal = monthlyDebts.reduce((s, d) => s + (d.monthlyPayment ?? 0), 0);
+  const debtBreakdown = monthlyDebts.map((d) => ({ name: d.name, amount: d.monthlyPayment ?? 0 }));
+
+  const finalSpendable =
+    spendablePool + transfersNetEffect - totalPlannedSpending - monthlyDebtTotal - input.purchaseAmount;
 
   const categoriesById = new Map(categories.map((c) => [String(c._id), c]));
   const categoryBreakdown = input.categoryPlan
@@ -70,10 +88,13 @@ async function buildContext(input: CalculatorInput): Promise<PlanContext> {
     transfersNetEffect,
     transferBreakdown,
     totalPlannedSpending,
+    monthlyDebtTotal,
+    debtBreakdown,
     finalSpendable,
     categoryBreakdown,
-    upcomingDebts: upcomingDebts
-      .filter((d) => d.currency === input.currency)
+    // Overdue/due-soon debts (including one-time ones already covered above), for AI context.
+    upcomingDebts: currencyDebts
+      .filter((d) => d.status === "overdue" || d.status === "due_soon")
       .map((d) => ({ name: d.name, amount: d.remainingAmount })),
   };
 }
@@ -94,7 +115,7 @@ const aiVerdictSchema = z.object({
   tips: z.array(z.string()).min(1).max(4),
 });
 
-const SYSTEM_PROMPT = `You are a personal finance decision-making assistant embedded in a budgeting app. The user has told you exactly how they plan to spend money by category this month, any transfers they plan to make between their own accounts, and a purchase they're considering. Only cash/bank account balances count as "available" — savings, credit cards, and other non-liquid accounts are intentionally excluded, so a transfer into any of those (including paying down a debt) is treated as money leaving what's available, even though it doesn't change net worth. Treat that as final, don't suggest dipping into savings or reversing a planned debt payment. You're given a JSON digest of that plan plus a pre-computed verdict. Write a short, concrete headline, a 2-4 sentence reasoning grounded in the actual numbers (name real categories, transfers, or debts due soon that affect the outcome), and 1-4 short actionable tips. Do not repeat the raw JSON back. Do not give regulated investment or tax advice.`;
+const SYSTEM_PROMPT = `You are a personal finance decision-making assistant embedded in a budgeting app. The user has told you exactly how they plan to spend money by category this month, any transfers they plan to make between their own accounts, and a purchase they're considering. Only cash/bank account balances count as "available" — savings, credit cards, and other non-liquid accounts are intentionally excluded, so a transfer into any of those (including paying down a debt) is treated as money leaving what's available, even though it doesn't change net worth. Fixed monthly debt payments due this cycle (loans, installments, recurring minimums) are already deducted as a committed cost, same as planned category spending. Treat all of that as final, don't suggest dipping into savings, skipping a fixed debt payment, or reversing a planned transfer. You're given a JSON digest of that plan plus a pre-computed verdict. Write a short, concrete headline, a 2-4 sentence reasoning grounded in the actual numbers (name real categories, transfers, debt payments, or debts overdue/due soon that affect the outcome), and 1-4 short actionable tips. Do not repeat the raw JSON back. Do not give regulated investment or tax advice.`;
 
 async function getAIVerdict(input: CalculatorInput, ctx: PlanContext, verdict: CalculatorVerdict) {
   const context = {
@@ -109,8 +130,10 @@ async function getAIVerdict(input: CalculatorInput, ctx: PlanContext, verdict: C
     totalPlannedSpending: fromCents(ctx.totalPlannedSpending),
     transfers: ctx.transferBreakdown.map((t) => ({ transfer: t.label, effectOnSpendable: fromCents(t.amount) })),
     transfersNetEffectOnSpendable: fromCents(ctx.transfersNetEffect),
+    fixedMonthlyDebtPayments: ctx.debtBreakdown.map((d) => ({ debt: d.name, amount: fromCents(d.amount) })),
+    totalMonthlyDebtPayments: fromCents(ctx.monthlyDebtTotal),
     finalSpendable: fromCents(ctx.finalSpendable),
-    upcomingDebts: ctx.upcomingDebts.map((d) => ({ name: d.name, amount: fromCents(d.amount) })),
+    overdueOrDueSoonDebts: ctx.upcomingDebts.map((d) => ({ name: d.name, amount: fromCents(d.amount) })),
     deterministicVerdict: verdict,
   };
 
@@ -150,6 +173,8 @@ export async function runCalculator(input: CalculatorInput): Promise<CalculatorR
     totalPlannedSpending: ctx.totalPlannedSpending,
     transfersNetEffect: ctx.transfersNetEffect,
     transferBreakdown: ctx.transferBreakdown,
+    monthlyDebtTotal: ctx.monthlyDebtTotal,
+    debtBreakdown: ctx.debtBreakdown,
     purchaseAmount: input.purchaseAmount,
     finalSpendable: ctx.finalSpendable,
     ai,

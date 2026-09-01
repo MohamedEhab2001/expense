@@ -39,6 +39,7 @@ export function CalculatorResult({ result }: { result: CalculatorResultDTO }) {
     { label: "Spendable balance (cash & bank)", amount: result.spendablePool },
     { label: "Planned spending this month", amount: -result.totalPlannedSpending },
     ...result.transferBreakdown,
+    ...result.debtBreakdown.map((d) => ({ label: `${d.name} (monthly)`, amount: -d.amount })),
   ];
   rows.push({ label: "This purchase", amount: -result.purchaseAmount });
   rows.push({ label: "Left over", amount: result.finalSpendable, emphasis: true });
