@@ -198,6 +198,39 @@ export interface DebtDTO {
   status: DebtStatus;
 }
 
+export type CalculatorVerdict = "go_for_it" | "doable_with_caution" | "wait";
+
+export interface CalculatorInputDTO {
+  amount: number;
+  currency: string;
+  isRecurring: boolean;
+  note?: string;
+  months?: number;
+}
+
+export interface CalculatorProjectionPointDTO {
+  month: number;
+  label: string;
+  withPurchase: number;
+  baseline: number;
+}
+
+export interface CalculatorAIVerdictDTO {
+  headline: string;
+  reasoning: string;
+  tips: string[];
+}
+
+export interface CalculatorResultDTO {
+  verdict: CalculatorVerdict;
+  currency: string;
+  currentBalance: number;
+  minProjectedBalance: number;
+  netMonthlyFlow: number;
+  projection: CalculatorProjectionPointDTO[];
+  ai: CalculatorAIVerdictDTO | null;
+}
+
 export interface TransactionFilters {
   accountId?: string;
   categoryId?: string;
