@@ -36,17 +36,17 @@ export function CalculatorResult({ result }: { result: CalculatorResultDTO }) {
   const Icon = meta.icon;
 
   const rows: { label: string; amount: number; emphasis?: boolean }[] = [
-    { label: `Starting balance — ${result.accountName}`, amount: result.startingBalance },
+    { label: "Spendable balance (excl. savings)", amount: result.spendablePool },
     { label: "Planned spending this month", amount: -result.totalPlannedSpending },
   ];
   if (result.transfersNetEffect !== 0) {
     rows.push({
-      label: result.transfersNetEffect > 0 ? "Transferred in" : "Transferred out",
+      label: result.transfersNetEffect > 0 ? "Freed up from savings" : "Moved into savings",
       amount: result.transfersNetEffect,
     });
   }
   rows.push({ label: "This purchase", amount: -result.purchaseAmount });
-  rows.push({ label: "Left over", amount: result.finalBalance, emphasis: true });
+  rows.push({ label: "Left over", amount: result.finalSpendable, emphasis: true });
 
   return (
     <div className="flex flex-col gap-3">
