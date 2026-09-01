@@ -12,6 +12,7 @@ import type { CalculatorResultDTO, CalculatorVerdict } from "@/lib/types";
 interface PlanContext {
   spendablePool: number;
   transfersNetEffect: number;
+  transferBreakdown: { label: string; amount: number }[];
   totalPlannedSpending: number;
   finalSpendable: number;
   categoryBreakdown: { name: string; amount: number }[];
@@ -29,23 +30,30 @@ async function buildContext(input: CalculatorInput): Promise<PlanContext> {
 
   const accountsById = new Map(accounts.map((a) => [String(a._id), a]));
 
-  // The user asked for savings to be excluded entirely — mirrors dashboardService's
-  // totalBalanceExcludingSavings: money sitting in a "savings" account isn't counted as
-  // available for this purchase.
-  const spendablePool = accounts
-    .filter((a) => a.type !== "savings")
-    .reduce((s, a) => s + a.balance, 0);
+  // "Spendable" is deliberately narrow: only cash/bank accounts — money you can freely spend
+  // today. Savings, credit cards, and misc ("other") accounts are excluded, so paying down a
+  // credit card (e.g. an informal loan tracked as a credit_card account) counts the same as
+  // moving money to savings: it's gone from what's available, even though it doesn't change
+  // net worth. A pure "exclude savings only" pool would net a debt payoff to zero and make it
+  // look like the transfer had no effect.
+  const spendablePool = accounts.filter((a) => isSpendable(a)).reduce((s, a) => s + a.balance, 0);
 
   let transfersNetEffect = 0;
+  const transferBreakdown: { label: string; amount: number }[] = [];
   for (const t of input.transfers) {
     const from = accountsById.get(t.fromAccountId);
     const to = accountsById.get(t.toAccountId);
     if (!from || !to) continue; // account isn't in this currency's pool — ignore
-    const fromSavings = isSavings(from);
-    const toSavings = isSavings(to);
-    if (fromSavings && !toSavings) transfersNetEffect += t.amount; // freed up from savings
-    else if (!fromSavings && toSavings) transfersNetEffect -= t.amount; // locked away into savings
-    // both spendable or both savings: no effect on the spendable pool
+    const fromSpendable = isSpendable(from);
+    const toSpendable = isSpendable(to);
+    if (fromSpendable && !toSpendable) {
+      transfersNetEffect -= t.amount; // left the spendable pool
+      transferBreakdown.push({ label: `${from.name} → ${to.name}`, amount: -t.amount });
+    } else if (!fromSpendable && toSpendable) {
+      transfersNetEffect += t.amount; // came back into it
+      transferBreakdown.push({ label: `${from.name} → ${to.name}`, amount: t.amount });
+    }
+    // both spendable or both non-spendable: no effect on the spendable pool, not shown
   }
 
   const totalPlannedSpending = input.categoryPlan.reduce((s, c) => s + c.amount, 0);
@@ -60,6 +68,7 @@ async function buildContext(input: CalculatorInput): Promise<PlanContext> {
   return {
     spendablePool,
     transfersNetEffect,
+    transferBreakdown,
     totalPlannedSpending,
     finalSpendable,
     categoryBreakdown,
@@ -69,8 +78,8 @@ async function buildContext(input: CalculatorInput): Promise<PlanContext> {
   };
 }
 
-function isSavings(account: Pick<AccountDoc, "type">) {
-  return account.type === "savings";
+function isSpendable(account: Pick<AccountDoc, "type">) {
+  return account.type === "cash" || account.type === "bank";
 }
 
 function decideVerdict(spendablePool: number, finalSpendable: number): CalculatorVerdict {
@@ -85,7 +94,7 @@ const aiVerdictSchema = z.object({
   tips: z.array(z.string()).min(1).max(4),
 });
 
-const SYSTEM_PROMPT = `You are a personal finance decision-making assistant embedded in a budgeting app. The user has told you exactly how they plan to spend money by category this month, any transfers they plan to make between their own accounts (including into/out of savings), and a purchase they're considering. Savings account balances are intentionally excluded from what's "available" — treat that as final, don't suggest dipping into savings. You're given a JSON digest of that plan plus a pre-computed verdict. Write a short, concrete headline, a 2-4 sentence reasoning grounded in the actual numbers (name real categories, transfers, or debts due soon that affect the outcome), and 1-4 short actionable tips. Do not repeat the raw JSON back. Do not give regulated investment or tax advice.`;
+const SYSTEM_PROMPT = `You are a personal finance decision-making assistant embedded in a budgeting app. The user has told you exactly how they plan to spend money by category this month, any transfers they plan to make between their own accounts, and a purchase they're considering. Only cash/bank account balances count as "available" — savings, credit cards, and other non-liquid accounts are intentionally excluded, so a transfer into any of those (including paying down a debt) is treated as money leaving what's available, even though it doesn't change net worth. Treat that as final, don't suggest dipping into savings or reversing a planned debt payment. You're given a JSON digest of that plan plus a pre-computed verdict. Write a short, concrete headline, a 2-4 sentence reasoning grounded in the actual numbers (name real categories, transfers, or debts due soon that affect the outcome), and 1-4 short actionable tips. Do not repeat the raw JSON back. Do not give regulated investment or tax advice.`;
 
 async function getAIVerdict(input: CalculatorInput, ctx: PlanContext, verdict: CalculatorVerdict) {
   const context = {
@@ -98,6 +107,7 @@ async function getAIVerdict(input: CalculatorInput, ctx: PlanContext, verdict: C
     spendablePool: fromCents(ctx.spendablePool),
     plannedCategorySpending: ctx.categoryBreakdown.map((c) => ({ category: c.name, amount: fromCents(c.amount) })),
     totalPlannedSpending: fromCents(ctx.totalPlannedSpending),
+    transfers: ctx.transferBreakdown.map((t) => ({ transfer: t.label, effectOnSpendable: fromCents(t.amount) })),
     transfersNetEffectOnSpendable: fromCents(ctx.transfersNetEffect),
     finalSpendable: fromCents(ctx.finalSpendable),
     upcomingDebts: ctx.upcomingDebts.map((d) => ({ name: d.name, amount: fromCents(d.amount) })),
@@ -139,6 +149,7 @@ export async function runCalculator(input: CalculatorInput): Promise<CalculatorR
     spendablePool: ctx.spendablePool,
     totalPlannedSpending: ctx.totalPlannedSpending,
     transfersNetEffect: ctx.transfersNetEffect,
+    transferBreakdown: ctx.transferBreakdown,
     purchaseAmount: input.purchaseAmount,
     finalSpendable: ctx.finalSpendable,
     ai,
