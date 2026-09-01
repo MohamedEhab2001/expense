@@ -212,7 +212,7 @@ export interface CalculatorTransferInputDTO {
 }
 
 export interface CalculatorInputDTO {
-  currency: string;
+  payFromAccountId: string;
   categoryPlan: CalculatorCategoryPlanInputDTO[];
   transfers: CalculatorTransferInputDTO[];
   purchaseAmount: number;
@@ -229,14 +229,16 @@ export interface CalculatorAIVerdictDTO {
 export interface CalculatorResultDTO {
   verdict: CalculatorVerdict;
   currency: string;
-  /** Sum of non-savings account balances in this currency, before this month's plan. */
-  spendablePool: number;
+  accountName: string;
+  /** The pay-from account's balance before this month's plan. Savings accounts can't be picked. */
+  startingBalance: number;
   totalPlannedSpending: number;
-  /** Net effect of transfers on the spendable pool (money moved in/out of savings). */
+  /** Net effect of transfers touching the pay-from account (in minus out); transfers between
+   *  two other accounts don't affect it. */
   transfersNetEffect: number;
   purchaseAmount: number;
-  /** spendablePool + transfersNetEffect - totalPlannedSpending - purchaseAmount */
-  finalSpendable: number;
+  /** startingBalance + transfersNetEffect - totalPlannedSpending - purchaseAmount */
+  finalBalance: number;
   ai: CalculatorAIVerdictDTO | null;
 }
 

@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { accountCurrencySchema } from "@/lib/validation/account";
-import { DEFAULT_CURRENCY } from "@/lib/utils/currency";
 
 const categoryPlanItemSchema = z.object({
   categoryId: z.string().min(1),
@@ -16,7 +14,7 @@ const transferItemSchema = z
   .refine((t) => t.fromAccountId !== t.toAccountId, { message: "From and to accounts must differ" });
 
 export const calculatorInputSchema = z.object({
-  currency: accountCurrencySchema.default(DEFAULT_CURRENCY),
+  payFromAccountId: z.string().min(1),
   categoryPlan: z.array(categoryPlanItemSchema).default([]),
   transfers: z.array(transferItemSchema).default([]),
   purchaseAmount: z.number().positive(),
