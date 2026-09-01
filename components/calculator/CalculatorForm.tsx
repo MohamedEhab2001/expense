@@ -52,6 +52,17 @@ export function CalculatorForm({
     () => (accounts ?? []).filter((a) => a.currency === currency),
     [accounts, currency]
   );
+  // Savings can't be the pay-from account — that's the whole point of excluding it.
+  const payFromCandidates = useMemo(
+    () => currencyAccounts.filter((a) => a.type !== "savings"),
+    [currencyAccounts]
+  );
+
+  const [payFromOverride, setPayFromOverride] = useState<string | null>(null);
+  const payFromAccountId =
+    payFromOverride && payFromCandidates.some((a) => a._id === payFromOverride)
+      ? payFromOverride
+      : payFromCandidates[0]?._id ?? "";
 
   // Base UI's <Select.Value> only resolves a selected item's label from its rendered
   // <Select.Item>s, which don't mount until the popup has been opened once — otherwise it
@@ -63,6 +74,10 @@ export function CalculatorForm({
   const accountItems = useMemo(
     () => Object.fromEntries(currencyAccounts.map((a) => [a._id, a.name])),
     [currencyAccounts]
+  );
+  const payFromItems = useMemo(
+    () => Object.fromEntries(payFromCandidates.map((a) => [a._id, a.name])),
+    [payFromCandidates]
   );
 
   // Every expense category, defaulting its planned amount to its current /budgets amount
@@ -91,11 +106,11 @@ export function CalculatorForm({
   const [isRecurring, setIsRecurring] = useState(false);
 
   function addTransfer() {
-    if (currencyAccounts.length < 2) return;
-    setTransfers((prev) => [
-      ...prev,
-      { fromAccountId: currencyAccounts[0]._id, toAccountId: currencyAccounts[1]._id, amount: "" },
-    ]);
+    if (currencyAccounts.length < 2 || !payFromAccountId) return;
+    // Default to "some other account -> the pay-from account" since that's the transfer
+    // that actually affects whether you can afford the purchase.
+    const other = currencyAccounts.find((a) => a._id !== payFromAccountId) ?? currencyAccounts[0];
+    setTransfers((prev) => [...prev, { fromAccountId: other._id, toAccountId: payFromAccountId, amount: "" }]);
   }
 
   function updateTransfer(index: number, patch: Partial<TransferRowState>) {
@@ -107,6 +122,10 @@ export function CalculatorForm({
   }
 
   function submit() {
+    if (!payFromAccountId) {
+      toast.error("Add a non-savings account to pay from first");
+      return;
+    }
     const purchase = Number(purchaseAmount);
     if (!purchase || purchase <= 0) {
       toast.error("Enter an amount greater than 0 for the purchase");
@@ -129,7 +148,7 @@ export function CalculatorForm({
       }));
 
     onSubmit({
-      currency,
+      payFromAccountId,
       categoryPlan,
       transfers: validTransfers,
       purchaseAmount: toCents(purchase),
@@ -140,20 +159,44 @@ export function CalculatorForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
-        <Label>Currency</Label>
-        <Select value={currency} onValueChange={(v) => setCurrencyOverride(v ?? null)} items={currencyItems}>
-          <SelectTrigger className="w-full min-w-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {heldCurrencies.map(({ code }) => (
-              <SelectItem key={code} value={code}>
-                {code}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Currency</Label>
+          <Select value={currency} onValueChange={(v) => setCurrencyOverride(v ?? null)} items={currencyItems}>
+            <SelectTrigger className="w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {heldCurrencies.map(({ code }) => (
+                <SelectItem key={code} value={code}>
+                  {code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>Pay from</Label>
+          {payFromCandidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              You need a non-savings account in {currency} to pay from.
+            </p>
+          ) : (
+            <Select value={payFromAccountId} onValueChange={(v) => setPayFromOverride(v ?? null)} items={payFromItems}>
+              <SelectTrigger className="w-full min-w-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {payFromCandidates.map((a) => (
+                  <SelectItem key={a._id} value={a._id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
@@ -191,7 +234,7 @@ export function CalculatorForm({
             variant="outline"
             size="sm"
             onClick={addTransfer}
-            disabled={currencyAccounts.length < 2}
+            disabled={currencyAccounts.length < 2 || !payFromAccountId}
           >
             <Plus className="size-3.5" /> Add
           </Button>
@@ -202,7 +245,7 @@ export function CalculatorForm({
           </p>
         ) : transfers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Moving money between accounts (e.g. into savings) this month? Add it here.
+            Only transfers into or out of your pay-from account affect the result below.
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -246,6 +289,9 @@ export function CalculatorForm({
                     </SelectContent>
                   </Select>
                 </div>
+                {t.fromAccountId !== payFromAccountId && t.toAccountId !== payFromAccountId && (
+                  <p className="pl-11 text-xs text-warning">Doesn&apos;t touch your pay-from account — won&apos;t affect the result.</p>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="w-9 shrink-0" aria-hidden />
                   <Input
