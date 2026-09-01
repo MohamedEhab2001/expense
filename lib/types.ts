@@ -232,8 +232,12 @@ export interface CalculatorResultDTO {
   /** Sum of non-savings account balances in this currency, before this month's plan. */
   spendablePool: number;
   totalPlannedSpending: number;
-  /** Net effect of transfers on the spendable pool (money moved in/out of savings). */
+  /** Net effect of transfers on the spendable pool (sum of transferBreakdown). */
   transfersNetEffect: number;
+  /** One entry per transfer that actually crosses in/out of the spendable pool (cash/bank
+   *  accounts) — transfers between two spendable or two non-spendable accounts are omitted
+   *  since they have no effect. */
+  transferBreakdown: { label: string; amount: number }[];
   purchaseAmount: number;
   /** spendablePool + transfersNetEffect - totalPlannedSpending - purchaseAmount */
   finalSpendable: number;
