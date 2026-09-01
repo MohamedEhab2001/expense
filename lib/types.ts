@@ -238,8 +238,11 @@ export interface CalculatorResultDTO {
    *  accounts) — transfers between two spendable or two non-spendable accounts are omitted
    *  since they have no effect. */
   transferBreakdown: { label: string; amount: number }[];
+  /** Sum of fixed monthly debt payments due this cycle (excludes already-paid/paid-off debts). */
+  monthlyDebtTotal: number;
+  debtBreakdown: { name: string; amount: number }[];
   purchaseAmount: number;
-  /** spendablePool + transfersNetEffect - totalPlannedSpending - purchaseAmount */
+  /** spendablePool + transfersNetEffect - totalPlannedSpending - monthlyDebtTotal - purchaseAmount */
   finalSpendable: number;
   ai: CalculatorAIVerdictDTO | null;
 }
