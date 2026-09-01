@@ -200,19 +200,24 @@ export interface DebtDTO {
 
 export type CalculatorVerdict = "go_for_it" | "doable_with_caution" | "wait";
 
-export interface CalculatorInputDTO {
+export interface CalculatorCategoryPlanInputDTO {
+  categoryId: string;
   amount: number;
-  currency: string;
-  isRecurring: boolean;
-  note?: string;
-  months?: number;
 }
 
-export interface CalculatorProjectionPointDTO {
-  month: number;
-  label: string;
-  withPurchase: number;
-  baseline: number;
+export interface CalculatorTransferInputDTO {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+}
+
+export interface CalculatorInputDTO {
+  currency: string;
+  categoryPlan: CalculatorCategoryPlanInputDTO[];
+  transfers: CalculatorTransferInputDTO[];
+  purchaseAmount: number;
+  isRecurring: boolean;
+  note?: string;
 }
 
 export interface CalculatorAIVerdictDTO {
@@ -224,10 +229,14 @@ export interface CalculatorAIVerdictDTO {
 export interface CalculatorResultDTO {
   verdict: CalculatorVerdict;
   currency: string;
-  currentBalance: number;
-  minProjectedBalance: number;
-  netMonthlyFlow: number;
-  projection: CalculatorProjectionPointDTO[];
+  /** Sum of non-savings account balances in this currency, before this month's plan. */
+  spendablePool: number;
+  totalPlannedSpending: number;
+  /** Net effect of transfers on the spendable pool (money moved in/out of savings). */
+  transfersNetEffect: number;
+  purchaseAmount: number;
+  /** spendablePool + transfersNetEffect - totalPlannedSpending - purchaseAmount */
+  finalSpendable: number;
   ai: CalculatorAIVerdictDTO | null;
 }
 

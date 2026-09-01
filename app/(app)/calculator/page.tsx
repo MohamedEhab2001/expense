@@ -3,18 +3,18 @@
 import { useState, useTransition } from "react";
 import { Calculator } from "lucide-react";
 import { runCalculatorAction } from "@/lib/actions/calculator";
-import { CalculatorForm, type CalculatorFormValues } from "@/components/calculator/CalculatorForm";
+import { CalculatorForm } from "@/components/calculator/CalculatorForm";
 import { CalculatorResult } from "@/components/calculator/CalculatorResult";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { CalculatorResultDTO } from "@/lib/types";
+import type { CalculatorInputDTO, CalculatorResultDTO } from "@/lib/types";
 import { toast } from "sonner";
 
 export default function CalculatorPage() {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<CalculatorResultDTO | null>(null);
 
-  function handleSubmit(values: CalculatorFormValues) {
+  function handleSubmit(values: CalculatorInputDTO) {
     startTransition(async () => {
       const response = await runCalculatorAction(values);
       if (response.ok) {
@@ -30,7 +30,7 @@ export default function CalculatorPage() {
       <div>
         <h1 className="text-xl font-semibold">Smart Calculator</h1>
         <p className="text-sm text-muted-foreground">
-          See how a purchase would play out against your real accounts, debts, and goals.
+          Plan this month&apos;s spending and transfers, then see if a purchase still fits.
         </p>
       </div>
 
