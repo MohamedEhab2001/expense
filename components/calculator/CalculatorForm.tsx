@@ -53,6 +53,18 @@ export function CalculatorForm({
     [accounts, currency]
   );
 
+  // Base UI's <Select.Value> only resolves a selected item's label from its rendered
+  // <Select.Item>s, which don't mount until the popup has been opened once — otherwise it
+  // falls back to showing the raw value. Passing `items` lets it resolve the label upfront.
+  const currencyItems = useMemo(
+    () => Object.fromEntries(heldCurrencies.map(({ code }) => [code, code])),
+    [heldCurrencies]
+  );
+  const accountItems = useMemo(
+    () => Object.fromEntries(currencyAccounts.map((a) => [a._id, a.name])),
+    [currencyAccounts]
+  );
+
   // Every expense category, defaulting its planned amount to its current /budgets amount
   // (0 if it has none) — editable inline for this run.
   const categoryDefaults = useMemo(() => {
@@ -130,8 +142,8 @@ export function CalculatorForm({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
         <Label>Currency</Label>
-        <Select value={currency} onValueChange={(v) => setCurrencyOverride(v ?? null)}>
-          <SelectTrigger className="w-full">
+        <Select value={currency} onValueChange={(v) => setCurrencyOverride(v ?? null)} items={currencyItems}>
+          <SelectTrigger className="w-full min-w-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -195,23 +207,15 @@ export function CalculatorForm({
         ) : (
           <div className="flex flex-col gap-3">
             {transfers.map((t, i) => (
-              <div key={i} className="flex flex-col gap-2 rounded-lg border border-border p-2">
+              <div key={i} className="flex flex-col gap-2 rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2">
-                  <Select value={t.fromAccountId} onValueChange={(v) => v && updateTransfer(i, { fromAccountId: v })}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currencyAccounts.map((a) => (
-                        <SelectItem key={a._id} value={a._id}>
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="shrink-0 text-xs text-muted-foreground">to</span>
-                  <Select value={t.toAccountId} onValueChange={(v) => v && updateTransfer(i, { toAccountId: v })}>
-                    <SelectTrigger className="w-full">
+                  <span className="w-9 shrink-0 text-xs text-muted-foreground">From</span>
+                  <Select
+                    value={t.fromAccountId}
+                    onValueChange={(v) => v && updateTransfer(i, { fromAccountId: v })}
+                    items={accountItems}
+                  >
+                    <SelectTrigger className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -224,14 +228,35 @@ export function CalculatorForm({
                   </Select>
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className="w-9 shrink-0 text-xs text-muted-foreground">To</span>
+                  <Select
+                    value={t.toAccountId}
+                    onValueChange={(v) => v && updateTransfer(i, { toAccountId: v })}
+                    items={accountItems}
+                  >
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencyAccounts.map((a) => (
+                        <SelectItem key={a._id} value={a._id}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-9 shrink-0" aria-hidden />
                   <Input
                     type="number"
                     inputMode="decimal"
                     placeholder="Amount"
                     value={t.amount}
                     onChange={(e) => updateTransfer(i, { amount: e.target.value })}
+                    className="min-w-0"
                   />
-                  <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeTransfer(i)}>
+                  <Button type="button" variant="ghost" size="icon-sm" className="shrink-0" onClick={() => removeTransfer(i)}>
                     <X className="size-4" />
                   </Button>
                 </div>
