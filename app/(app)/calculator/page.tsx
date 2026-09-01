@@ -5,8 +5,10 @@ import { Calculator } from "lucide-react";
 import { runCalculatorAction } from "@/lib/actions/calculator";
 import { CalculatorForm } from "@/components/calculator/CalculatorForm";
 import { CalculatorResult } from "@/components/calculator/CalculatorResult";
+import { SavingsGoalCalculator } from "@/components/calculator/SavingsGoalCalculator";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { CalculatorInputDTO, CalculatorResultDTO } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -29,30 +31,41 @@ export default function CalculatorPage() {
     <div className="flex flex-col gap-4 px-4 pt-6">
       <div>
         <h1 className="text-xl font-semibold">Smart Calculator</h1>
-        <p className="text-sm text-muted-foreground">
-          Plan this month&apos;s spending and transfers, then see if a purchase still fits.
-        </p>
+        <p className="text-sm text-muted-foreground">Plan a purchase or a savings goal against your real finances.</p>
       </div>
 
-      <CalculatorForm onSubmit={handleSubmit} submitting={pending} />
+      <Tabs defaultValue="afford">
+        <TabsList className="w-full">
+          <TabsTrigger value="afford">Afford a purchase</TabsTrigger>
+          <TabsTrigger value="goal">Reach a savings goal</TabsTrigger>
+        </TabsList>
 
-      {pending && (
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-16 w-full rounded-xl" />
-          <Skeleton className="h-40 w-full rounded-xl" />
-          <Skeleton className="h-24 w-full rounded-xl" />
-        </div>
-      )}
+        <TabsContent value="afford" className="flex flex-col gap-4 pt-4">
+          <CalculatorForm onSubmit={handleSubmit} submitting={pending} />
 
-      {!pending && !result && (
-        <EmptyState
-          icon={Calculator}
-          title="Run a scenario"
-          description="Enter something you're considering buying to see if it fits your finances."
-        />
-      )}
+          {pending && (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-40 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          )}
 
-      {!pending && result && <CalculatorResult result={result} />}
+          {!pending && !result && (
+            <EmptyState
+              icon={Calculator}
+              title="Run a scenario"
+              description="Enter something you're considering buying to see if it fits your finances."
+            />
+          )}
+
+          {!pending && result && <CalculatorResult result={result} />}
+        </TabsContent>
+
+        <TabsContent value="goal" className="pt-4">
+          <SavingsGoalCalculator />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
