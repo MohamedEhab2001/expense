@@ -18,6 +18,11 @@ import {
   Target,
   Receipt,
   HandCoins,
+  Music2,
+  Tv2,
+  Cloud,
+  Newspaper,
+  Gamepad2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,6 +46,11 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   target: Target,
   receipt: Receipt,
   "hand-coins": HandCoins,
+  music: Music2,
+  tv: Tv2,
+  cloud: Cloud,
+  newspaper: Newspaper,
+  gamepad: Gamepad2,
 };
 
 export function getIcon(key: string): LucideIcon {
@@ -62,6 +72,7 @@ export const CATEGORY_ICON_OPTIONS = [
 ];
 export const GOAL_ICON_OPTIONS = ["target", "piggy-bank", "home", "car", "circle-dollar-sign"];
 export const DEBT_ICON_OPTIONS = ["credit-card", "landmark", "receipt", "hand-coins", "car", "home"];
+export const SUBSCRIPTION_ICON_OPTIONS = ["tv", "music", "cloud", "newspaper", "gamepad", "laptop", "receipt"];
 
 export const COLOR_PALETTE = [
   "#34D399",

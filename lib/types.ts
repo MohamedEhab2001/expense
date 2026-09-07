@@ -254,3 +254,20 @@ export interface TransactionFilters {
   from?: string;
   to?: string;
 }
+
+export type BillingCycle = "monthly" | "yearly";
+
+export interface SubscriptionDTO {
+  _id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  // 1 unit of `currency` = exchangeRate EGP.
+  exchangeRate: number;
+  billingCycle: BillingCycle;
+  billingDay: number;
+  icon: string;
+  color: string;
+  isActive: boolean;
+  isArchived: boolean;
+}

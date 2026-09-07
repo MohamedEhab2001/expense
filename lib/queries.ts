@@ -10,6 +10,7 @@ import type {
   AnalyticsDTO,
   TransactionFilters,
   DebtDTO,
+  SubscriptionDTO,
   ExpensePeriod,
   ExpenseSummaryDTO,
   ExpenseBreakdownBarDTO,
@@ -26,6 +27,7 @@ export const queryKeys = {
   dashboard: ["dashboard"] as const,
   analytics: ["analytics"] as const,
   debts: ["debts"] as const,
+  subscriptions: ["subscriptions"] as const,
 };
 
 export function useAccounts() {
@@ -105,6 +107,13 @@ export function useDebts() {
   });
 }
 
+export function useSubscriptions() {
+  return useQuery({
+    queryKey: queryKeys.subscriptions,
+    queryFn: () => fetcher<SubscriptionDTO[]>("/api/subscriptions"),
+  });
+}
+
 export function useExpenseSummary(period: ExpensePeriod, date: Date) {
   const dateKey = date.toISOString().slice(0, 10);
   return useQuery({
@@ -139,6 +148,7 @@ export function useInvalidate() {
     dashboard: () => client.invalidateQueries({ queryKey: queryKeys.dashboard }),
     analytics: () => client.invalidateQueries({ queryKey: queryKeys.analytics }),
     debts: () => client.invalidateQueries({ queryKey: queryKeys.debts }),
+    subscriptions: () => client.invalidateQueries({ queryKey: queryKeys.subscriptions }),
     all: () => client.invalidateQueries(),
   };
 }
