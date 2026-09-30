@@ -72,7 +72,6 @@ export default function DashboardPage() {
 
   async function undoMonth() {
     if (!data?.currentCycle) return;
-    if (!confirm("Undo the current month? Budgets will go back to the previous month's start date.")) return;
     try {
       await postJSON(`/api/cycles/${data.currentCycle._id}`, {}, "DELETE");
       toast.success("Month start undone");
@@ -108,6 +107,20 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+          <CalendarDays className="size-3.5 shrink-0" />
+          {data.spendingPace.isCustomPeriod
+            ? `Since ${format(periodStart, "MMM d")} · day ${differenceInCalendarDays(new Date(), periodStart) + 1}`
+            : format(periodStart, "MMMM")}
+          {" · "}
+          {formatCents(data.spendingPace.monthToDateExpense)} spent
+        </p>
+        <Button size="xs" variant="outline" className="shrink-0" onClick={() => setStartMonthOpen(true)}>
+          <RotateCcw className="size-3" /> New month
+        </Button>
+      </div>
+
       <header className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
@@ -156,63 +169,42 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CalendarDays className="size-3.5" />
-              {data.spendingPace.isCustomPeriod
-                ? `Since ${format(periodStart, "MMM d")} · day ${differenceInCalendarDays(new Date(), periodStart) + 1}`
-                : `${format(periodStart, "MMMM")} (calendar month)`}
-            </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">
-              <AnimatedCurrency cents={data.spendingPace.monthToDateExpense} />{" "}
-              <span className="text-xs font-normal text-muted-foreground">spent</span>
-            </p>
+      {data.spendingPace.percentOfPace !== null && (
+        <Link href="/insights" className="rounded-xl border border-border bg-card p-3 transition-transform active:scale-[0.98]">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Spending pace this month</span>
+            <span
+              className={cn(
+                "font-medium tabular-nums",
+                data.spendingPace.percentOfPace >= 100 ? "text-destructive" : "text-muted-foreground"
+              )}
+            >
+              {data.spendingPace.percentOfPace}% of typical
+            </span>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <Button size="sm" variant="outline" onClick={() => setStartMonthOpen(true)}>
-              <RotateCcw className="size-3.5" /> New month
-            </Button>
-            {data.currentCycle && (
-              <button onClick={undoMonth} className="text-xs text-muted-foreground underline-offset-2 hover:underline">
-                Undo
-              </button>
-            )}
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                data.spendingPace.percentOfPace >= 100
+                  ? "bg-destructive"
+                  : data.spendingPace.percentOfPace >= 80
+                    ? "bg-warning"
+                    : "bg-success"
+              )}
+              style={{ width: `${Math.min(100, data.spendingPace.percentOfPace)}%` }}
+            />
           </div>
-        </div>
+        </Link>
+      )}
 
-        {data.spendingPace.percentOfPace !== null && (
-          <Link href="/insights" className="mt-3 block transition-transform active:scale-[0.98]">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Spending pace</span>
-              <span
-                className={cn(
-                  "font-medium tabular-nums",
-                  data.spendingPace.percentOfPace >= 100 ? "text-destructive" : "text-muted-foreground"
-                )}
-              >
-                {data.spendingPace.percentOfPace}% of typical
-              </span>
-            </div>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all",
-                  data.spendingPace.percentOfPace >= 100
-                    ? "bg-destructive"
-                    : data.spendingPace.percentOfPace >= 80
-                      ? "bg-warning"
-                      : "bg-success"
-                )}
-                style={{ width: `${Math.min(100, data.spendingPace.percentOfPace)}%` }}
-              />
-            </div>
-          </Link>
-        )}
-      </section>
-
-      <StartMonthDialog open={startMonthOpen} onOpenChange={setStartMonthOpen} onStarted={() => invalidate.all()} />
+      <StartMonthDialog
+        open={startMonthOpen}
+        onOpenChange={setStartMonthOpen}
+        currentStart={data.currentCycle ? new Date(data.currentCycle.startDate) : null}
+        onChanged={() => invalidate.all()}
+        onUndo={undoMonth}
+      />
 
       {data.upcomingDebts.length > 0 && (
         <Link
