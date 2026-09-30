@@ -13,6 +13,7 @@ const DebtSchema = new Schema(
     dueDay: { type: Number, min: 1, max: 31 }, // required only when paymentSchedule is "monthly"
     linkedAccountId: { type: Schema.Types.ObjectId, ref: "Account" },
     lastPaidMonth: { type: String }, // "YYYY-MM", set when a payment is marked
+    lastPaidAt: { type: Date }, // compared against the current home month's start
     icon: { type: String, default: "credit-card" },
     color: { type: String, default: "#F87171" },
     isPaidOff: { type: Boolean, default: false },

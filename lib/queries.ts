@@ -106,8 +106,8 @@ export function useSubscriptions() {
   });
 }
 
-export function useExpenseSummary(period: ExpensePeriod, date: Date) {
-  const dateKey = date.toISOString().slice(0, 10);
+// dateKey is a "yyyy-MM-dd" day.
+export function useExpenseSummary(period: ExpensePeriod, dateKey: string) {
   return useQuery({
     queryKey: ["expenseSummary", period, dateKey],
     queryFn: () => fetcher<ExpenseSummaryDTO>(`/api/analytics/expenses?period=${period}&date=${dateKey}`),

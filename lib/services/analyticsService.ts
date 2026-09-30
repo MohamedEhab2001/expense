@@ -2,7 +2,7 @@ import { connectDB } from "@/lib/db";
 import Transaction from "@/models/Transaction";
 import Account from "@/models/Account";
 import "@/models/Category";
-import { monthRange } from "@/lib/utils/dates";
+import { appNow, monthRange } from "@/lib/utils/dates";
 import {
   format,
   subMonths,
@@ -153,7 +153,7 @@ async function expenseBreakdown(period: ExpensePeriod, start: Date, end: Date) {
   );
 }
 
-export async function getExpenseSummary(period: ExpensePeriod, referenceDate: Date = new Date()) {
+export async function getExpenseSummary(period: ExpensePeriod, referenceDate: Date = appNow()) {
   await connectDB();
   // "Month" follows home months, whose boundaries live in the database.
   const current =
@@ -186,7 +186,7 @@ export async function getExpenseSummary(period: ExpensePeriod, referenceDate: Da
 
 export async function getLocationBreakdown(monthsBack = 12) {
   await connectDB();
-  const since = subMonths(new Date(), monthsBack);
+  const since = subMonths(appNow(), monthsBack);
 
   const rows = await Transaction.aggregate([
     { $match: { type: "expense", date: { $gte: since } } },
@@ -208,7 +208,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // has been started) against the average of the previous three periods, scaled by elapsed time.
 export async function getSpendingPace() {
   await connectDB();
-  const now = new Date();
+  const now = appNow();
   const [current, ...past] = await getRecentPeriods(4, now);
 
   const [periodToDateExpense, pastTotals] = await Promise.all([
@@ -248,7 +248,7 @@ export async function getNetWorthTrend(days = 30) {
   const accounts = await Account.find({ isArchived: false }).lean();
   const currentTotalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
 
-  const now = new Date();
+  const now = appNow();
   const dayStarts = Array.from({ length: days }, (_, i) => startOfDay(subDays(now, days - 1 - i)));
 
   const dailyNets = await Promise.all(

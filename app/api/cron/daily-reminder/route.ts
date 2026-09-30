@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { hasTransactionOnDate } from "@/lib/services/transactionService";
 import { sendPushToAll } from "@/lib/webPush";
 import { CRON_SECRET } from "@/lib/pushConfig";
+import { appNow } from "@/lib/utils/dates";
 
 export async function GET(req: NextRequest) {
   const authorized =
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const loggedToday = await hasTransactionOnDate(new Date());
+  const loggedToday = await hasTransactionOnDate(appNow());
   if (loggedToday) {
     return NextResponse.json({ skipped: true, reason: "already logged today" });
   }

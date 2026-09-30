@@ -1,8 +1,9 @@
 import { connectDB } from "@/lib/db";
 import MonthCycle from "@/models/MonthCycle";
-import { addDays, endOfDay, endOfMonth, format, isSameDay, startOfMonth, subMonths } from "date-fns";
+import { endOfDay, endOfMonth, format, isSameDay, startOfMonth, subMonths } from "date-fns";
 import type { z } from "zod";
 import type { startCycleSchema } from "@/lib/validation/cycle";
+import { appNow } from "@/lib/utils/dates";
 
 export interface Period {
   start: Date;
@@ -17,7 +18,7 @@ export interface Period {
  * periods are the preceding home months. Before the first home month — or when none
  * exist — periods fall back to month-long windows (calendar months when there are no cycles).
  */
-export async function getRecentPeriods(count: number, now: Date = new Date()): Promise<Period[]> {
+export async function getRecentPeriods(count: number, now: Date = appNow()): Promise<Period[]> {
   await connectDB();
   const cycles = await MonthCycle.find({ startDate: { $lte: now } })
     .sort({ startDate: -1 })
@@ -63,7 +64,7 @@ export async function getPeriodContaining(date: Date): Promise<Period> {
   const nextStartEnd = next ? new Date(next.startDate.getTime() - 1) : null;
 
   if (cycle) {
-    return { start: cycle.startDate, end: nextStartEnd ?? endOfDay(new Date()), isCustom: true };
+    return { start: cycle.startDate, end: nextStartEnd ?? endOfDay(appNow()), isCustom: true };
   }
   const calendarEnd = endOfMonth(date);
   return {
@@ -84,7 +85,7 @@ export function periodShortLabel({ start }: Pick<Period, "start">): string {
   return start.getDate() === 1 ? format(start, "MMM") : format(start, "MMM d");
 }
 
-export async function getCurrentPeriod(now: Date = new Date()) {
+export async function getCurrentPeriod(now: Date = appNow()) {
   const [current] = await getRecentPeriods(1, now);
   return current;
 }
@@ -97,14 +98,13 @@ export async function listCycles() {
 export async function startCycle(input: z.infer<typeof startCycleSchema>) {
   await connectDB();
   // A "yyyy-MM-dd" day parses to UTC midnight — the same boundary transaction dates use.
-  const startDate = input.startDate ?? new Date(format(new Date(), "yyyy-MM-dd"));
+  const startDate = input.startDate ?? new Date(format(appNow(), "yyyy-MM-dd"));
 
   const latest = await MonthCycle.findOne().sort({ startDate: -1 }).lean();
   if (latest && startDate <= latest.startDate) {
     throw new Error("New month must start after the current one");
   }
-  // Allow a day of slack: the user's "today" can be ahead of the server's in UTC+ timezones.
-  if (startDate > addDays(new Date(), 1)) {
+  if (startDate > appNow()) {
     throw new Error("New month can't start in the future");
   }
 

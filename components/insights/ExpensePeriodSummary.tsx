@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { format, parse } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   BarChart,
@@ -27,8 +28,8 @@ const PERIODS: { value: ExpensePeriod; label: string }[] = [
   { value: "year", label: "Year" },
 ];
 
-function shiftDate(period: ExpensePeriod, date: Date, direction: 1 | -1): Date {
-  const d = new Date(date);
+function shiftDate(period: ExpensePeriod, dateKey: string, direction: 1 | -1): string {
+  const d = parse(dateKey, "yyyy-MM-dd", new Date());
   switch (period) {
     case "day":
       d.setDate(d.getDate() + direction);
@@ -40,7 +41,7 @@ function shiftDate(period: ExpensePeriod, date: Date, direction: 1 | -1): Date {
       d.setFullYear(d.getFullYear() + direction);
       break;
   }
-  return d;
+  return format(d, "yyyy-MM-dd");
 }
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
@@ -55,16 +56,17 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 export function ExpensePeriodSummary() {
   const [period, setPeriod] = useState<ExpensePeriod>("month");
-  const [date, setDate] = useState(() => new Date());
-  const { data, isLoading } = useExpenseSummary(period, date);
+  const [dateKey, setDateKey] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const { data, isLoading } = useExpenseSummary(period, dateKey);
 
   // Home months have irregular lengths, so step to the day just outside the shown range.
   function step(direction: 1 | -1) {
     if (period === "month" && data) {
+      // Period bounds are UTC-midnight days (like transaction dates), so read the day in UTC.
       const edge = direction === -1 ? new Date(data.start).getTime() - 1 : new Date(data.end).getTime() + 1;
-      setDate(new Date(edge));
+      setDateKey(new Date(edge).toISOString().slice(0, 10));
     } else {
-      setDate((d) => shiftDate(period, d, direction));
+      setDateKey((d) => shiftDate(period, d, direction));
     }
   }
 

@@ -1,6 +1,46 @@
-import { startOfMonth, endOfMonth, format, subMonths } from "date-fns";
+import { addMonths, getDaysInMonth, startOfDay, startOfMonth, endOfMonth, format, subMonths } from "date-fns";
 
-export function monthKey(date: Date = new Date()): string {
+export const APP_TIME_ZONE = process.env.APP_TIME_ZONE ?? "Africa/Cairo";
+
+/**
+ * The user's current wall-clock time, expressed in UTC fields.
+ *
+ * Transactions store their day as UTC midnight ("2026-10-01" -> 2026-10-01T00:00Z) and the
+ * server runs in UTC, so "today" and "this month" must come from the user's clock, not the
+ * server's — otherwise from midnight to 3 AM in Cairo the server is still on yesterday.
+ */
+export function appNow(): Date {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: APP_TIME_ZONE,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .formatToParts(new Date())
+      .map((p) => [p.type, p.value])
+  );
+  return new Date(
+    Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second)
+  );
+}
+
+/**
+ * The first date on or after `periodStart` that falls on `day` of its month (clamped to the
+ * month's length, so day 31 lands on Feb 28). A bill due on the 5th inside a home month that
+ * starts on Sep 26 is due Oct 5, not "overdue since Sep 5".
+ */
+export function dueDateInPeriod(day: number, periodStart: Date): Date {
+  const onDay = (month: Date) => new Date(month.getFullYear(), month.getMonth(), Math.min(day, getDaysInMonth(month)));
+  const candidate = onDay(periodStart);
+  return candidate >= startOfDay(periodStart) ? candidate : onDay(addMonths(startOfMonth(periodStart), 1));
+}
+
+export function monthKey(date: Date = appNow()): string {
   return format(date, "yyyy-MM");
 }
 

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { connectDB } from "@/lib/db";
+import { appNow } from "@/lib/utils/dates";
 import Account from "@/models/Account";
 import "@/models/Category";
 import Transaction, { type Transaction as TransactionDoc } from "@/models/Transaction";
@@ -126,7 +127,7 @@ export async function hasTransactionOnDate(date: Date) {
 
 export async function getStreaks(lookbackDays = 60) {
   await connectDB();
-  const now = new Date();
+  const now = appNow();
   const start = startOfDay(subDays(now, lookbackDays - 1));
 
   const [allDates, expenseDates] = await Promise.all([

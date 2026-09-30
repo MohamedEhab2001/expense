@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import { ArrowLeftRight, Banknote, MapPin, TrendingDown, TrendingUp } from "lucide-react";
 import { postJSON } from "@/lib/fetcher";
 import { toCents } from "@/lib/utils/currency";
@@ -41,7 +42,7 @@ export default function NewTransactionPage() {
   const [accountId, setAccountId] = useState("");
   const [linkedAccountId, setLinkedAccountId] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd")); // local day, not UTC
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
