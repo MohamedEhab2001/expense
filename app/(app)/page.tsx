@@ -162,7 +162,7 @@ export default function DashboardPage() {
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <CalendarDays className="size-3.5" />
               {data.spendingPace.isCustomPeriod
-                ? `Since ${format(periodStart, "MMM d")} · day ${differenceInCalendarDays(new Date(), periodStart) + 1}`
+                ? `Since ${format(periodStart, "MMM d")} Â· day ${differenceInCalendarDays(new Date(), periodStart) + 1}`
                 : `${format(periodStart, "MMMM")} (calendar month)`}
             </p>
             <p className="mt-1 text-lg font-semibold tabular-nums">
