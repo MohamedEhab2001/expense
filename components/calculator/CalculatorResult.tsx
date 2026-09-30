@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertTriangle, XCircle, Lightbulb } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCents } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,6 @@ export function CalculatorResult({ result }: { result: CalculatorResultDTO }) {
         <Icon className={cn("size-5 shrink-0", meta.color)} />
         <div className="flex-1">
           <Badge className={cn(meta.badge)}>{meta.label}</Badge>
-          {result.ai && <p className="mt-1.5 text-sm font-medium">{result.ai.headline}</p>}
         </div>
       </div>
 
@@ -75,21 +74,6 @@ export function CalculatorResult({ result }: { result: CalculatorResultDTO }) {
         </div>
       </div>
 
-      {result.ai && (
-        <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">{result.ai.reasoning}</p>
-          {result.ai.tips.length > 0 && (
-            <ul className="mt-3 flex flex-col gap-2">
-              {result.ai.tips.map((tip, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }

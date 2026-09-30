@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { PiggyBank, Sparkles, Tags, Settings, CreditCard, Gauge, Calculator, Tv } from "lucide-react";
+import { PiggyBank, PieChart, Tags, Settings, CreditCard, Gauge, Calculator, Tv } from "lucide-react";
 
 const TABS = [
   { href: "/", label: "Home", icon: Home },
@@ -27,7 +27,7 @@ const MORE_LINKS = [
   { href: "/debts", label: "Debts", icon: CreditCard },
   { href: "/subscriptions", label: "Subscriptions", icon: Tv },
   { href: "/calculator", label: "Smart Calculator", icon: Calculator },
-  { href: "/insights", label: "AI Insights", icon: Sparkles },
+  { href: "/insights", label: "Insights", icon: PieChart },
   { href: "/categories", label: "Categories", icon: Tags },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;

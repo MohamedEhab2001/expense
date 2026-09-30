@@ -5,7 +5,6 @@ import type {
   CategoryDTO,
   TransactionDTO,
   GoalDTO,
-  AIInsightDTO,
   DashboardSummaryDTO,
   AnalyticsDTO,
   TransactionFilters,
@@ -23,7 +22,6 @@ export const queryKeys = {
   transactions: ["transactions"] as const,
   budgets: ["budgets"] as const,
   goals: ["goals"] as const,
-  insights: ["insights"] as const,
   dashboard: ["dashboard"] as const,
   analytics: ["analytics"] as const,
   debts: ["debts"] as const,
@@ -60,7 +58,8 @@ export function useTransactions(limit = 100, filters: TransactionFilters = {}) {
 }
 
 export interface BudgetsResponse {
-  month: string;
+  month?: string;
+  periodStart?: string;
   budgets: import("@/lib/types").BudgetStatusDTO[];
   unbudgetedCategories: CategoryDTO[];
 }
@@ -76,13 +75,6 @@ export function useGoals() {
   return useQuery({
     queryKey: queryKeys.goals,
     queryFn: () => fetcher<GoalDTO[]>("/api/goals"),
-  });
-}
-
-export function useInsightsHistory() {
-  return useQuery({
-    queryKey: queryKeys.insights,
-    queryFn: () => fetcher<AIInsightDTO[]>("/api/insights"),
   });
 }
 
@@ -144,7 +136,6 @@ export function useInvalidate() {
     transactions: () => client.invalidateQueries({ queryKey: queryKeys.transactions }),
     budgets: () => client.invalidateQueries({ queryKey: queryKeys.budgets }),
     goals: () => client.invalidateQueries({ queryKey: queryKeys.goals }),
-    insights: () => client.invalidateQueries({ queryKey: queryKeys.insights }),
     dashboard: () => client.invalidateQueries({ queryKey: queryKeys.dashboard }),
     analytics: () => client.invalidateQueries({ queryKey: queryKeys.analytics }),
     debts: () => client.invalidateQueries({ queryKey: queryKeys.debts }),

@@ -7,6 +7,7 @@ import { listGoals } from "./goalService";
 import { getUpcomingDebts, listDebts } from "./debtService";
 import { getCreditCardAlerts } from "./accountService";
 import { getSpendingPace } from "./analyticsService";
+import { listCycles } from "./cycleService";
 import type { DebtStatus } from "./debtService";
 
 const DEBT_STATUS_RANK: Record<DebtStatus, number> = {
@@ -30,6 +31,7 @@ export async function getDashboardSummary() {
     creditCardAlerts,
     streaks,
     spendingPace,
+    cycles,
   ] = await Promise.all([
     Account.find({ isArchived: false }).sort({ order: 1 }).lean(),
     listTransactions({ limit: 8 }),
@@ -40,6 +42,7 @@ export async function getDashboardSummary() {
     getCreditCardAlerts(),
     getStreaks(),
     getSpendingPace(),
+    listCycles(),
   ]);
 
   const topDebts = allDebts
@@ -78,5 +81,6 @@ export async function getDashboardSummary() {
     creditCardAlerts,
     streaks,
     spendingPace,
+    currentCycle: cycles[0] ?? null,
   };
 }

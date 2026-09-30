@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { format } from "date-fns";
 import { Plus, PiggyBank } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +42,10 @@ export default function BudgetsPage() {
 
       {!isLoading && data && data.budgets.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Total spent this month</p>
+          <p className="text-sm text-muted-foreground">
+            Total spent this month
+            {data.periodStart && ` (since ${format(new Date(data.periodStart), "MMM d")})`}
+          </p>
           <p className="text-2xl font-semibold tabular-nums">
             <AnimatedCurrency cents={totalSpent} /> <span className="text-base font-normal text-muted-foreground">/ {formatCents(totalBudgeted)}</span>
           </p>

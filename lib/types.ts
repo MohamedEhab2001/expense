@@ -89,21 +89,6 @@ export interface GoalDTO {
   isArchived: boolean;
 }
 
-export interface InsightItemDTO {
-  type: "spending_pattern" | "budget_adherence" | "savings_feasibility" | "suggestion";
-  title: string;
-  body: string;
-  severity: "info" | "warning" | "positive";
-}
-
-export interface AIInsightDTO {
-  _id: string;
-  generatedAt: string;
-  summary: string;
-  insights: InsightItemDTO[];
-  model: string;
-}
-
 export interface StreaksDTO {
   logStreak: number;
   noSpendStreak: number;
@@ -113,11 +98,18 @@ export interface SpendingPaceDTO {
   monthToDateExpense: number;
   expectedPace: number;
   percentOfPace: number | null;
+  periodStart: string;
+  isCustomPeriod: boolean;
 }
 
 export interface CurrencyBalanceDTO {
   currency: string;
   amount: number;
+}
+
+export interface MonthCycleDTO {
+  _id: string;
+  startDate: string;
 }
 
 export interface DashboardSummaryDTO {
@@ -134,6 +126,7 @@ export interface DashboardSummaryDTO {
   creditCardAlerts: CreditCardAlertDTO[];
   streaks: StreaksDTO;
   spendingPace: SpendingPaceDTO;
+  currentCycle: MonthCycleDTO | null;
 }
 
 export interface CategoryBreakdownItemDTO {
@@ -168,6 +161,8 @@ export interface ExpenseSummaryDTO {
   period: ExpensePeriod;
   date: string;
   rangeLabel: string;
+  start: string;
+  end: string;
   total: number;
   previousTotal: number;
   breakdown: ExpenseBreakdownBarDTO[];
@@ -220,12 +215,6 @@ export interface CalculatorInputDTO {
   note?: string;
 }
 
-export interface CalculatorAIVerdictDTO {
-  headline: string;
-  reasoning: string;
-  tips: string[];
-}
-
 export interface CalculatorResultDTO {
   verdict: CalculatorVerdict;
   currency: string;
@@ -244,7 +233,6 @@ export interface CalculatorResultDTO {
   purchaseAmount: number;
   /** spendablePool + transfersNetEffect - totalPlannedSpending - monthlyDebtTotal - purchaseAmount */
   finalSpendable: number;
-  ai: CalculatorAIVerdictDTO | null;
 }
 
 export interface TransactionFilters {

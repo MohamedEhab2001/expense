@@ -2,7 +2,7 @@ import { connectDB } from "@/lib/db";
 import Transaction from "@/models/Transaction";
 import Account from "@/models/Account";
 import "@/models/Category";
-import { monthKey, monthRange } from "@/lib/utils/dates";
+import { monthRange } from "@/lib/utils/dates";
 import {
   format,
   subMonths,
@@ -21,10 +21,18 @@ import {
   eachMonthOfInterval,
 } from "date-fns";
 import type { ExpensePeriod } from "@/lib/types";
+import {
+  getCurrentPeriod,
+  getPeriodContaining,
+  getRecentPeriods,
+  periodLabel,
+  periodShortLabel,
+} from "./cycleService";
 
-export async function getCategoryBreakdown(key: string = monthKey()) {
+// With a calendar month key, breaks down that month; without one, the current home month.
+export async function getCategoryBreakdown(key?: string) {
   await connectDB();
-  const { start, end } = monthRange(key);
+  const { start, end } = key ? monthRange(key) : await getCurrentPeriod();
 
   const rows = await Transaction.aggregate([
     { $match: { type: "expense", date: { $gte: start, $lte: end } } },
@@ -43,14 +51,14 @@ export async function getCategoryBreakdown(key: string = monthKey()) {
   }));
 }
 
+// Income vs expense per home month (or calendar month, before any home month), oldest first.
 export async function getMonthlyTrend(monthsBack = 6) {
   await connectDB();
-  const now = new Date();
-  const keys = Array.from({ length: monthsBack }, (_, i) => monthKey(subMonths(now, monthsBack - 1 - i)));
+  const periods = (await getRecentPeriods(monthsBack)).reverse();
 
   const results = await Promise.all(
-    keys.map(async (key) => {
-      const { start, end } = monthRange(key);
+    periods.map(async (period) => {
+      const { start, end } = period;
       const [incomeAgg, expenseAgg] = await Promise.all([
         Transaction.aggregate([
           { $match: { type: "income", date: { $gte: start, $lte: end } } },
@@ -62,8 +70,8 @@ export async function getMonthlyTrend(monthsBack = 6) {
         ]),
       ]);
       return {
-        month: key,
-        label: format(start, "MMM"),
+        month: format(start, "yyyy-MM-dd"),
+        label: periodShortLabel(period),
         income: incomeAgg[0]?.total ?? 0,
         expense: expenseAgg[0]?.total ?? 0,
       };
@@ -147,8 +155,15 @@ async function expenseBreakdown(period: ExpensePeriod, start: Date, end: Date) {
 
 export async function getExpenseSummary(period: ExpensePeriod, referenceDate: Date = new Date()) {
   await connectDB();
-  const { start, end } = periodRange(period, referenceDate);
-  const { start: prevStart, end: prevEnd } = periodRange(period, previousPeriodDate(period, referenceDate));
+  // "Month" follows home months, whose boundaries live in the database.
+  const current =
+    period === "month" ? await getPeriodContaining(referenceDate) : periodRange(period, referenceDate);
+  const previous =
+    period === "month"
+      ? await getPeriodContaining(new Date(current.start.getTime() - 1))
+      : periodRange(period, previousPeriodDate(period, referenceDate));
+  const { start, end } = current;
+  const { start: prevStart, end: prevEnd } = previous;
 
   const [total, previousTotal, breakdown] = await Promise.all([
     sumExpenses(start, end),
@@ -159,7 +174,10 @@ export async function getExpenseSummary(period: ExpensePeriod, referenceDate: Da
   return {
     period,
     date: referenceDate.toISOString(),
-    rangeLabel: periodRangeLabel(period, referenceDate),
+    rangeLabel:
+      period === "month" ? periodLabel(current) : periodRangeLabel(period, referenceDate),
+    start: start.toISOString(),
+    end: end.toISOString(),
     total,
     previousTotal,
     breakdown,
@@ -184,30 +202,45 @@ export async function getLocationBreakdown(monthsBack = 12) {
   return rows.map((r) => ({ label: r._id as string, amount: r.amount as number }));
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Compares spending so far in the current home month (or calendar month, if no home month
+// has been started) against the average of the previous three periods, scaled by elapsed time.
 export async function getSpendingPace() {
   await connectDB();
   const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = endOfMonth(now).getDate();
+  const [current, ...past] = await getRecentPeriods(4, now);
 
-  const { start: mtdStart } = monthRange(monthKey(now));
-  const monthToDateExpense = await sumExpenses(mtdStart, now);
+  const [periodToDateExpense, pastTotals] = await Promise.all([
+    sumExpenses(current.start, now),
+    Promise.all(past.map((p) => sumExpenses(p.start, p.end))),
+  ]);
 
-  const pastTotals = await Promise.all(
-    [1, 2, 3].map((n) => {
-      const { start, end } = monthRange(monthKey(subMonths(now, n)));
-      return sumExpenses(start, end);
-    })
-  );
+  const validPast = past.filter((_, i) => pastTotals[i] > 0);
   const validPastTotals = pastTotals.filter((t) => t > 0);
-  const avgPastMonth = validPastTotals.length
+  const avgPastPeriod = validPastTotals.length
     ? validPastTotals.reduce((s, t) => s + t, 0) / validPastTotals.length
     : 0;
 
-  const expectedPace = avgPastMonth * (dayOfMonth / daysInMonth);
-  const percentOfPace = expectedPace > 0 ? Math.round((monthToDateExpense / expectedPace) * 100) : null;
+  // A calendar month's length is known; a home month's isn't until the next one starts,
+  // so estimate it from how long the previous periods lasted.
+  const periodLengthMs = current.isCustom
+    ? validPast.length
+      ? validPast.reduce((s, p) => s + (p.end.getTime() - p.start.getTime()), 0) / validPast.length
+      : 30 * DAY_MS
+    : current.end.getTime() - current.start.getTime();
+  const elapsedFraction = Math.min(1, (now.getTime() - current.start.getTime()) / periodLengthMs);
 
-  return { monthToDateExpense, expectedPace, percentOfPace };
+  const expectedPace = avgPastPeriod * elapsedFraction;
+  const percentOfPace = expectedPace > 0 ? Math.round((periodToDateExpense / expectedPace) * 100) : null;
+
+  return {
+    monthToDateExpense: periodToDateExpense,
+    expectedPace,
+    percentOfPace,
+    periodStart: current.start,
+    isCustomPeriod: current.isCustom,
+  };
 }
 
 export async function getNetWorthTrend(days = 30) {

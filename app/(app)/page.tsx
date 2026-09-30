@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle, CreditCard, Flame, Leaf } from "lucide-react";
+import { format, differenceInCalendarDays } from "date-fns";
+import { AlertTriangle, CalendarDays, CreditCard, Flame, Leaf, RotateCcw } from "lucide-react";
 import { formatCents } from "@/lib/utils/currency";
 import { getIcon } from "@/lib/icon-map";
 import { AnimatedCurrency } from "@/components/shared/AnimatedCurrency";
@@ -11,6 +12,8 @@ import { BalancesByCurrency } from "@/components/shared/BalancesByCurrency";
 import { BudgetProgressBar } from "@/components/budgets/BudgetProgressBar";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { StartMonthDialog } from "@/components/cycles/StartMonthDialog";
 import { cn } from "@/lib/utils";
 import { postJSON } from "@/lib/fetcher";
 import { useDashboardSummary, useInvalidate } from "@/lib/queries";
@@ -43,6 +46,7 @@ export default function DashboardPage() {
   const invalidate = useInvalidate();
   const reduceMotion = useReducedMotion();
   const [includeSavings, setIncludeSavings] = useState(false);
+  const [startMonthOpen, setStartMonthOpen] = useState(false);
 
   // Sync from localStorage after mount to avoid a server/client hydration mismatch.
   useEffect(() => {
@@ -60,6 +64,18 @@ export default function DashboardPage() {
     try {
       await postJSON(`/api/transactions/${id}`, {}, "DELETE");
       toast.success("Transaction deleted");
+      invalidate.all();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  async function undoMonth() {
+    if (!data?.currentCycle) return;
+    if (!confirm("Undo the current month? Budgets will go back to the previous month's start date.")) return;
+    try {
+      await postJSON(`/api/cycles/${data.currentCycle._id}`, {}, "DELETE");
+      toast.success("Month start undone");
       invalidate.all();
     } catch (e) {
       toast.error((e as Error).message);
@@ -88,6 +104,7 @@ export default function DashboardPage() {
   }
 
   const itemDelay = (i: number) => (reduceMotion ? 0 : i * 0.04);
+  const periodStart = new Date(data.spendingPace.periodStart);
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6">
@@ -139,34 +156,63 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {data.spendingPace.percentOfPace !== null && (
-        <Link href="/insights" className="rounded-xl border border-border bg-card p-3 transition-transform active:scale-[0.98]">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Spending pace this month</span>
-            <span
-              className={cn(
-                "font-medium tabular-nums",
-                data.spendingPace.percentOfPace >= 100 ? "text-destructive" : "text-muted-foreground"
-              )}
-            >
-              {data.spendingPace.percentOfPace}% of typical
-            </span>
+      <section className="rounded-xl border border-border bg-card p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarDays className="size-3.5" />
+              {data.spendingPace.isCustomPeriod
+                ? `Since ${format(periodStart, "MMM d")} · day ${differenceInCalendarDays(new Date(), periodStart) + 1}`
+                : `${format(periodStart, "MMMM")} (calendar month)`}
+            </p>
+            <p className="mt-1 text-lg font-semibold tabular-nums">
+              <AnimatedCurrency cents={data.spendingPace.monthToDateExpense} />{" "}
+              <span className="text-xs font-normal text-muted-foreground">spent</span>
+            </p>
           </div>
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all",
-                data.spendingPace.percentOfPace >= 100
-                  ? "bg-destructive"
-                  : data.spendingPace.percentOfPace >= 80
-                    ? "bg-warning"
-                    : "bg-success"
-              )}
-              style={{ width: `${Math.min(100, data.spendingPace.percentOfPace)}%` }}
-            />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Button size="sm" variant="outline" onClick={() => setStartMonthOpen(true)}>
+              <RotateCcw className="size-3.5" /> New month
+            </Button>
+            {data.currentCycle && (
+              <button onClick={undoMonth} className="text-xs text-muted-foreground underline-offset-2 hover:underline">
+                Undo
+              </button>
+            )}
           </div>
-        </Link>
-      )}
+        </div>
+
+        {data.spendingPace.percentOfPace !== null && (
+          <Link href="/insights" className="mt-3 block transition-transform active:scale-[0.98]">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Spending pace</span>
+              <span
+                className={cn(
+                  "font-medium tabular-nums",
+                  data.spendingPace.percentOfPace >= 100 ? "text-destructive" : "text-muted-foreground"
+                )}
+              >
+                {data.spendingPace.percentOfPace}% of typical
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  data.spendingPace.percentOfPace >= 100
+                    ? "bg-destructive"
+                    : data.spendingPace.percentOfPace >= 80
+                      ? "bg-warning"
+                      : "bg-success"
+                )}
+                style={{ width: `${Math.min(100, data.spendingPace.percentOfPace)}%` }}
+              />
+            </div>
+          </Link>
+        )}
+      </section>
+
+      <StartMonthDialog open={startMonthOpen} onOpenChange={setStartMonthOpen} onStarted={() => invalidate.all()} />
 
       {data.upcomingDebts.length > 0 && (
         <Link

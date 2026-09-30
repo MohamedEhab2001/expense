@@ -33,9 +33,6 @@ function shiftDate(period: ExpensePeriod, date: Date, direction: 1 | -1): Date {
     case "day":
       d.setDate(d.getDate() + direction);
       break;
-    case "month":
-      d.setMonth(d.getMonth() + direction);
-      break;
     case "quarter":
       d.setMonth(d.getMonth() + direction * 3);
       break;
@@ -61,6 +58,16 @@ export function ExpensePeriodSummary() {
   const [date, setDate] = useState(() => new Date());
   const { data, isLoading } = useExpenseSummary(period, date);
 
+  // Home months have irregular lengths, so step to the day just outside the shown range.
+  function step(direction: 1 | -1) {
+    if (period === "month" && data) {
+      const edge = direction === -1 ? new Date(data.start).getTime() - 1 : new Date(data.end).getTime() + 1;
+      setDate(new Date(edge));
+    } else {
+      setDate((d) => shiftDate(period, d, direction));
+    }
+  }
+
   const delta = data && data.previousTotal > 0 ? ((data.total - data.previousTotal) / data.previousTotal) * 100 : null;
 
   return (
@@ -85,7 +92,7 @@ export function ExpensePeriodSummary() {
 
       <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
         <button
-          onClick={() => setDate((d) => shiftDate(period, d, -1))}
+          onClick={() => step(-1)}
           className="flex size-8 items-center justify-center rounded-full text-muted-foreground active:bg-secondary"
         >
           <ChevronLeft className="size-4" />
@@ -107,7 +114,7 @@ export function ExpensePeriodSummary() {
         </div>
 
         <button
-          onClick={() => setDate((d) => shiftDate(period, d, 1))}
+          onClick={() => step(1)}
           className="flex size-8 items-center justify-center rounded-full text-muted-foreground active:bg-secondary"
         >
           <ChevronRight className="size-4" />
