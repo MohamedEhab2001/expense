@@ -18,8 +18,8 @@ export default function DebtsPage() {
   const [editing, setEditing] = useState<DebtDTO | undefined>(undefined);
 
   function refresh() {
-    invalidate.debts();
-    invalidate.dashboard();
+    // Paying a debt can also change account balances, transactions and budgets.
+    invalidate.all();
   }
 
   return (

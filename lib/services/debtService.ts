@@ -1,9 +1,12 @@
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Debt, { type Debt as DebtDoc } from "@/models/Debt";
 import "@/models/Account";
-import { differenceInCalendarDays } from "date-fns";
+import Category from "@/models/Category";
+import { differenceInCalendarDays, format } from "date-fns";
 import { appNow, dueDateInPeriod, monthKey } from "@/lib/utils/dates";
 import { getCurrentPeriod } from "./cycleService";
+import { insertTransaction } from "./transactionService";
 import type { z } from "zod";
 import type { createDebtSchema, updateDebtSchema } from "@/lib/validation/debt";
 
@@ -72,26 +75,60 @@ export async function archiveDebt(id: string) {
   return Debt.findByIdAndUpdate(id, { isArchived: true }, { new: true }).lean();
 }
 
+const DEBT_PAYMENT_CATEGORY = { name: "Debt payments", kind: "expense", icon: "hand-coins", color: "#F87171" };
+
+async function debtPaymentCategoryId(session: mongoose.ClientSession) {
+  const existing = await Category.findOne({ name: DEBT_PAYMENT_CATEGORY.name, kind: "expense" }).session(session);
+  if (existing) return String(existing._id);
+  const [created] = await Category.create([DEBT_PAYMENT_CATEGORY], { session });
+  return String(created._id);
+}
+
+// Records the payment against the debt and, when the debt has a "pay from" account, deducts
+// it from that account as a "Debt payments" expense — both in one transaction.
 export async function markDebtPaid(id: string, amount?: number) {
   await connectDB();
   const debt = await Debt.findById(id);
   if (!debt) throw new Error("Debt not found");
 
+  let payment: number;
   if (debt.paymentSchedule === "one_time") {
     if (!amount || amount <= 0) throw new Error("Enter a payment amount");
-    debt.remainingAmount = Math.max(0, debt.remainingAmount - amount);
+    payment = amount;
   } else {
-    const payment = amount ?? debt.monthlyPayment;
-    if (!payment) throw new Error("Debt has no monthly payment set");
-    debt.remainingAmount = Math.max(0, debt.remainingAmount - payment);
+    const monthly = amount ?? debt.monthlyPayment;
+    if (!monthly) throw new Error("Debt has no monthly payment set");
+    payment = monthly;
     debt.lastPaidMonth = monthKey();
     debt.lastPaidAt = appNow();
   }
-
+  // Only the part that actually reduces the debt leaves the account.
+  const applied = Math.min(payment, debt.remainingAmount);
+  debt.remainingAmount -= applied;
   if (debt.remainingAmount <= 0) {
     debt.isPaidOff = true;
   }
-  await debt.save();
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      if (debt.linkedAccountId && applied > 0) {
+        await insertTransaction(session, {
+          type: "expense",
+          amount: applied,
+          accountId: String(debt.linkedAccountId),
+          categoryId: await debtPaymentCategoryId(session),
+          // Transaction dates are the user's day at UTC midnight.
+          date: new Date(format(appNow(), "yyyy-MM-dd")),
+          note: `Payment: ${debt.name}`,
+        });
+      }
+      await debt.save({ session });
+    });
+  } finally {
+    await session.endSession();
+  }
+
   const period = await getCurrentPeriod();
   return { ...debt.toObject(), status: getDebtStatus(debt, period.start) };
 }

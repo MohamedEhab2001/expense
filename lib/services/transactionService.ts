@@ -66,15 +66,21 @@ export async function listTransactions(params: {
     .lean();
 }
 
+// Creates a transaction and applies its balance effect inside the caller's session, so it can
+// be combined atomically with other writes (e.g. marking a debt paid).
+export async function insertTransaction(session: mongoose.ClientSession, input: CreateTransactionInput) {
+  const [doc] = await Transaction.create([input], { session });
+  await applyBalanceEffect(session, doc, 1);
+  return doc.toObject() as TransactionDoc;
+}
+
 export async function createTransaction(input: CreateTransactionInput) {
   await connectDB();
   const session = await mongoose.startSession();
   try {
     let created: TransactionDoc | null = null;
     await session.withTransaction(async () => {
-      const [doc] = await Transaction.create([input], { session });
-      created = doc.toObject();
-      await applyBalanceEffect(session, doc, 1);
+      created = await insertTransaction(session, input);
     });
     return created;
   } finally {

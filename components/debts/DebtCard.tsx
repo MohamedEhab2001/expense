@@ -63,6 +63,10 @@ export function DebtCard({
       : null;
   const canPay = debt.status !== "paid" && debt.status !== "paid_off";
 
+  function paidMessage(base: string) {
+    return debt.linkedAccountId ? `${base} · deducted from ${debt.linkedAccountId.name}` : base;
+  }
+
   async function archive() {
     try {
       await postJSON(`/api/debts/${debt._id}`, {}, "DELETE");
@@ -77,7 +81,7 @@ export function DebtCard({
     setPaying(true);
     try {
       await postJSON(`/api/debts/${debt._id}/pay`, {}, "POST");
-      toast.success("Marked as paid");
+      toast.success(paidMessage("Marked as paid"));
       onChanged();
     } catch (e) {
       toast.error((e as Error).message);
@@ -92,7 +96,7 @@ export function DebtCard({
     setPaying(true);
     try {
       await postJSON(`/api/debts/${debt._id}/pay`, { amount: cents }, "POST");
-      toast.success("Payment recorded");
+      toast.success(paidMessage("Payment recorded"));
       setPayingAmount(false);
       setAmount("");
       onChanged();
