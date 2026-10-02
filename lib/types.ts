@@ -34,6 +34,7 @@ export interface CategoryDTO {
   _id: string;
   name: string;
   kind: CategoryKind;
+  parentId?: string | null;
   icon: string;
   color: string;
   isArchived: boolean;
@@ -69,11 +70,28 @@ export interface TransactionDTO {
 
 export interface BudgetStatusDTO {
   _id: string;
-  category: RefLite;
+  category: RefLite & { parentId?: string | null };
+  /** The monthly amount as set; `budgeted` adds any rollover on top. */
+  amount: number;
   budgeted: number;
   spent: number;
   percentUsed: number;
   rollover: boolean;
+  /** True when the category is a parent; its spending includes all its subcategories. */
+  isGroup: boolean;
+  /** For a parent: spending split by the parent itself and each subcategory. */
+  breakdown?: { category: RefLite; spent: number }[];
+  /** False for a subcategory budget whose parent is also budgeted (already counted there). */
+  countsTowardTotal: boolean;
+}
+
+export interface BudgetPeriodDTO {
+  start: string;
+  /** Exact for calendar months; estimated from past home months otherwise. */
+  end: string;
+  /** How far through the period today is, 0–1. */
+  elapsedFraction: number;
+  daysLeft: number;
 }
 
 export interface GoalDTO {
@@ -131,6 +149,7 @@ export interface DashboardSummaryDTO {
 
 export interface CategoryBreakdownItemDTO {
   categoryId: string;
+  parentId: string | null;
   name: string;
   icon: string;
   color: string;

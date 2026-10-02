@@ -54,3 +54,13 @@ export function previousMonthKey(key: string): string {
   const { start } = monthRange(key);
   return monthKey(subMonths(start, 1));
 }
+
+// Reads an optional `from`/`to` pair of ISO dates off a query string; both must be valid.
+export function rangeFromParams(params: URLSearchParams): { start: Date; end: Date } | undefined {
+  const from = params.get("from");
+  const to = params.get("to");
+  if (!from || !to) return undefined;
+  const start = new Date(from);
+  const end = new Date(to);
+  return isNaN(start.getTime()) || isNaN(end.getTime()) || start > end ? undefined : { start, end };
+}

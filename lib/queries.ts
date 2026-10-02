@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import type {
   AccountDTO,
@@ -59,7 +59,7 @@ export function useTransactions(limit = 100, filters: TransactionFilters = {}) {
 
 export interface BudgetsResponse {
   month?: string;
-  periodStart?: string;
+  period: import("@/lib/types").BudgetPeriodDTO;
   budgets: import("@/lib/types").BudgetStatusDTO[];
   unbudgetedCategories: CategoryDTO[];
 }
@@ -85,10 +85,22 @@ export function useDashboardSummary() {
   });
 }
 
-export function useAnalytics() {
+export interface DateRangeParams {
+  from: string;
+  to: string;
+}
+
+function rangeQuery({ from, to }: DateRangeParams) {
+  return new URLSearchParams({ from, to }).toString();
+}
+
+// Range-scoped queries wait for a range and keep showing the last result while the next loads.
+export function useAnalytics(range?: DateRangeParams) {
   return useQuery({
-    queryKey: queryKeys.analytics,
-    queryFn: () => fetcher<AnalyticsDTO>("/api/analytics"),
+    queryKey: [...queryKeys.analytics, range?.from, range?.to],
+    queryFn: () => fetcher<AnalyticsDTO>(`/api/analytics?${rangeQuery(range!)}`),
+    enabled: !!range,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -111,20 +123,25 @@ export function useExpenseSummary(period: ExpensePeriod, dateKey: string) {
   return useQuery({
     queryKey: ["expenseSummary", period, dateKey],
     queryFn: () => fetcher<ExpenseSummaryDTO>(`/api/analytics/expenses?period=${period}&date=${dateKey}`),
+    placeholderData: keepPreviousData,
   });
 }
 
-export function useLocationBreakdown() {
+export function useLocationBreakdown(range?: DateRangeParams) {
   return useQuery({
-    queryKey: ["locationBreakdown"],
-    queryFn: () => fetcher<{ breakdown: ExpenseBreakdownBarDTO[] }>("/api/analytics/locations"),
+    queryKey: ["locationBreakdown", range?.from, range?.to],
+    queryFn: () => fetcher<{ breakdown: ExpenseBreakdownBarDTO[] }>(`/api/analytics/locations?${rangeQuery(range!)}`),
+    enabled: !!range,
+    placeholderData: keepPreviousData,
   });
 }
 
-export function useNetWorthTrend(days = 30) {
+export function useNetWorthTrend(range?: DateRangeParams) {
   return useQuery({
-    queryKey: ["netWorthTrend", days],
-    queryFn: () => fetcher<NetWorthPointDTO[]>(`/api/analytics/networth?days=${days}`),
+    queryKey: ["netWorthTrend", range?.from, range?.to],
+    queryFn: () => fetcher<NetWorthPointDTO[]>(`/api/analytics/networth?${rangeQuery(range!)}`),
+    enabled: !!range,
+    placeholderData: keepPreviousData,
   });
 }
 

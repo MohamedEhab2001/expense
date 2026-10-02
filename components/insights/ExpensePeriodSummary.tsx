@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { format, parse } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -18,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PieChart } from "lucide-react";
-import { useExpenseSummary } from "@/lib/queries";
+import type { useExpenseSummary } from "@/lib/queries";
 import type { ExpensePeriod } from "@/lib/types";
 
 const PERIODS: { value: ExpensePeriod; label: string }[] = [
@@ -54,19 +53,29 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
-export function ExpensePeriodSummary() {
-  const [period, setPeriod] = useState<ExpensePeriod>("month");
-  const [dateKey, setDateKey] = useState(() => format(new Date(), "yyyy-MM-dd"));
-  const { data, isLoading } = useExpenseSummary(period, dateKey);
+// Controlled by the Insights page, which scopes every other section to the period chosen here.
+export function ExpensePeriodSummary({
+  period,
+  onPeriodChange,
+  onDateKeyChange,
+  summary,
+}: {
+  period: ExpensePeriod;
+  onPeriodChange: (period: ExpensePeriod) => void;
+  onDateKeyChange: (update: (dateKey: string) => string) => void;
+  summary: ReturnType<typeof useExpenseSummary>;
+}) {
+  const { data, isLoading, isPlaceholderData } = summary;
 
   // Home months have irregular lengths, so step to the day just outside the shown range.
   function step(direction: 1 | -1) {
+    if (isPlaceholderData) return; // the shown range is stale until the current one loads
     if (period === "month" && data) {
       // Period bounds are UTC-midnight days (like transaction dates), so read the day in UTC.
       const edge = direction === -1 ? new Date(data.start).getTime() - 1 : new Date(data.end).getTime() + 1;
-      setDateKey(new Date(edge).toISOString().slice(0, 10));
+      onDateKeyChange(() => new Date(edge).toISOString().slice(0, 10));
     } else {
-      setDateKey((d) => shiftDate(period, d, direction));
+      onDateKeyChange((d) => shiftDate(period, d, direction));
     }
   }
 
@@ -80,7 +89,7 @@ export function ExpensePeriodSummary() {
           {PERIODS.map((p) => (
             <button
               key={p.value}
-              onClick={() => setPeriod(p.value)}
+              onClick={() => onPeriodChange(p.value)}
               className={cn(
                 "rounded-full px-2.5 py-1 font-medium transition-colors",
                 period === p.value ? "bg-primary text-primary-foreground" : "text-muted-foreground"

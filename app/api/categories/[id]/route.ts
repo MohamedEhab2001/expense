@@ -9,8 +9,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const category = await updateCategory(id, parsed.data);
-  return NextResponse.json(category);
+  try {
+    const category = await updateCategory(id, parsed.data);
+    return NextResponse.json(category);
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+  }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

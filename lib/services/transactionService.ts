@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { appNow } from "@/lib/utils/dates";
 import Account from "@/models/Account";
 import "@/models/Category";
+import { categoryWithChildrenIds } from "./categoryService";
 import Transaction, { type Transaction as TransactionDoc } from "@/models/Transaction";
 import type { CreateTransactionInput } from "@/lib/validation/transaction";
 
@@ -45,7 +46,8 @@ export async function listTransactions(params: {
   if (params.accountId) {
     filter.$or = [{ accountId: params.accountId }, { linkedAccountId: params.accountId }];
   }
-  if (params.categoryId) filter.categoryId = params.categoryId;
+  // A parent category matches its subcategories' transactions too.
+  if (params.categoryId) filter.categoryId = { $in: await categoryWithChildrenIds(params.categoryId) };
   if (params.type) filter.type = params.type;
   if (params.from || params.to) {
     filter.date = {

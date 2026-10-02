@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import {
   Wallet,
   Landmark,
@@ -55,6 +56,11 @@ export const ICON_MAP: Record<string, LucideIcon> = {
 
 export function getIcon(key: string): LucideIcon {
   return ICON_MAP[key] ?? Tag;
+}
+
+// Renders an icon by key without creating a component during render.
+export function DynamicIcon({ name, className }: { name: string; className?: string }) {
+  return createElement(getIcon(name), { className });
 }
 
 export const ACCOUNT_ICON_OPTIONS = ["wallet", "landmark", "credit-card", "piggy-bank", "circle-dollar-sign"];

@@ -85,6 +85,18 @@ export function periodShortLabel({ start }: Pick<Period, "start">): string {
   return start.getDate() === 1 ? format(start, "MMM") : format(start, "MMM d");
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long `current` is expected to last. A calendar month's length is known; a home month's
+ * isn't until the next one starts, so estimate it from how long the `past` periods lasted.
+ */
+export function estimatedPeriodLengthMs(current: Period, past: Period[]): number {
+  if (!current.isCustom) return current.end.getTime() - current.start.getTime();
+  if (past.length === 0) return 30 * DAY_MS;
+  return past.reduce((s, p) => s + (p.end.getTime() - p.start.getTime()), 0) / past.length;
+}
+
 export async function getCurrentPeriod(now: Date = appNow()) {
   const [current] = await getRecentPeriods(1, now);
   return current;

@@ -6,11 +6,11 @@ import { format } from "date-fns";
 import { ArrowLeftRight, Banknote, MapPin, TrendingDown, TrendingUp } from "lucide-react";
 import { postJSON } from "@/lib/fetcher";
 import { toCents } from "@/lib/utils/currency";
-import { getIcon } from "@/lib/icon-map";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CategoryPicker } from "@/components/categories/CategoryPicker";
 import {
   Select,
   SelectContent,
@@ -192,25 +192,7 @@ export default function NewTransactionPage() {
           {needsCategory && (
             <div className="flex flex-col gap-1.5">
               <Label>Category</Label>
-              <div className="flex flex-wrap gap-2">
-                {relevantCategories.map((cat) => {
-                  const Icon = getIcon(cat.icon);
-                  const active = categoryId === cat._id;
-                  return (
-                    <button
-                      key={cat._id}
-                      onClick={() => setCategoryId(cat._id)}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-all active:scale-95",
-                        active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                      )}
-                    >
-                      <Icon className="size-3.5" />
-                      {cat.name}
-                    </button>
-                  );
-                })}
-              </div>
+              <CategoryPicker categories={relevantCategories} value={categoryId} onChange={setCategoryId} />
             </div>
           )}
 

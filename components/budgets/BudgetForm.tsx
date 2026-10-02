@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { postJSON } from "@/lib/fetcher";
 import { toCents } from "@/lib/utils/currency";
+import { flattenGroups, groupCategories } from "@/lib/utils/categories";
 import type { CategoryDTO, BudgetStatusDTO } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -28,20 +29,33 @@ export function BudgetForm({
   open,
   onOpenChange,
   unbudgetedCategories,
+  allCategories,
   editingBudget,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   unbudgetedCategories: CategoryDTO[];
+  /** All categories, to tell which unbudgeted ones are parents. */
+  allCategories: CategoryDTO[];
   editingBudget?: BudgetStatusDTO;
   onSaved: () => void;
 }) {
   const isEdit = !!editingBudget;
   const [categoryId, setCategoryId] = useState(editingBudget?.category._id ?? "");
-  const [amount, setAmount] = useState(editingBudget ? String(editingBudget.budgeted / 100) : "");
+  const [amount, setAmount] = useState(editingBudget ? String(editingBudget.amount / 100) : "");
   const [rollover, setRollover] = useState(editingBudget?.rollover ?? false);
   const [saving, setSaving] = useState(false);
+
+  // Subcategories listed under their parent; budgeting a parent covers all its subcategories.
+  const categoryOptions = useMemo(() => {
+    const groups = groupCategories(unbudgetedCategories);
+    return flattenGroups(groups).map((o) => ({
+      ...o,
+      isGroup: allCategories.some((c) => c.parentId === o.category._id),
+    }));
+  }, [unbudgetedCategories, allCategories]);
+  const categoryItems = Object.fromEntries(unbudgetedCategories.map((c) => [c._id, c.name]));
 
   async function submit() {
     if (!categoryId) return toast.error("Select a category");
@@ -72,14 +86,15 @@ export function BudgetForm({
           {!isEdit && (
             <div className="flex flex-col gap-1.5">
               <Label>Category</Label>
-              <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
+              <Select items={categoryItems} value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {unbudgetedCategories.map((c) => (
-                    <SelectItem key={c._id} value={c._id}>
-                      {c.name}
+                  {categoryOptions.map(({ category, depth, isGroup }) => (
+                    <SelectItem key={category._id} value={category._id} className={depth ? "pl-6" : undefined}>
+                      {category.name}
+                      {isGroup && <span className="text-xs text-muted-foreground">· whole group</span>}
                     </SelectItem>
                   ))}
                 </SelectContent>

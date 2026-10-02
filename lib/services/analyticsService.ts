@@ -2,7 +2,7 @@ import { connectDB } from "@/lib/db";
 import Transaction from "@/models/Transaction";
 import Account from "@/models/Account";
 import "@/models/Category";
-import { appNow, monthRange } from "@/lib/utils/dates";
+import { appNow } from "@/lib/utils/dates";
 import {
   format,
   subMonths,
@@ -22,6 +22,7 @@ import {
 } from "date-fns";
 import type { ExpensePeriod } from "@/lib/types";
 import {
+  estimatedPeriodLengthMs,
   getCurrentPeriod,
   getPeriodContaining,
   getRecentPeriods,
@@ -29,10 +30,12 @@ import {
   periodShortLabel,
 } from "./cycleService";
 
-// With a calendar month key, breaks down that month; without one, the current home month.
-export async function getCategoryBreakdown(key?: string) {
+type Range = { start: Date; end: Date };
+
+// Expenses per category over `range` (default: the current home month), largest first.
+export async function getCategoryBreakdown(range?: Range) {
   await connectDB();
-  const { start, end } = key ? monthRange(key) : await getCurrentPeriod();
+  const { start, end } = range ?? (await getCurrentPeriod());
 
   const rows = await Transaction.aggregate([
     { $match: { type: "expense", date: { $gte: start, $lte: end } } },
@@ -44,6 +47,7 @@ export async function getCategoryBreakdown(key?: string) {
 
   return rows.map((r) => ({
     categoryId: String(r._id),
+    parentId: r.cat.parentId ? String(r.cat.parentId) : null,
     name: r.cat.name as string,
     icon: r.cat.icon as string,
     color: r.cat.color as string,
@@ -51,10 +55,11 @@ export async function getCategoryBreakdown(key?: string) {
   }));
 }
 
-// Income vs expense per home month (or calendar month, before any home month), oldest first.
-export async function getMonthlyTrend(monthsBack = 6) {
+// Income vs expense per home month (or calendar month, before any home month), oldest first,
+// ending with the period that contains `until`.
+export async function getMonthlyTrend(monthsBack = 6, until: Date = appNow()) {
   await connectDB();
-  const periods = (await getRecentPeriods(monthsBack)).reverse();
+  const periods = (await getRecentPeriods(monthsBack, until)).reverse();
 
   const results = await Promise.all(
     periods.map(async (period) => {
@@ -184,12 +189,13 @@ export async function getExpenseSummary(period: ExpensePeriod, referenceDate: Da
   };
 }
 
-export async function getLocationBreakdown(monthsBack = 12) {
+// Expenses grouped by location over `range` (default: the last 12 months), largest first.
+export async function getLocationBreakdown(range?: Range) {
   await connectDB();
-  const since = subMonths(appNow(), monthsBack);
+  const { start, end } = range ?? { start: subMonths(appNow(), 12), end: appNow() };
 
   const rows = await Transaction.aggregate([
-    { $match: { type: "expense", date: { $gte: since } } },
+    { $match: { type: "expense", date: { $gte: start, $lte: end } } },
     {
       $group: {
         _id: { $ifNull: ["$location.governorate", { $ifNull: ["$location.city", "Unknown"] }] },
@@ -201,8 +207,6 @@ export async function getLocationBreakdown(monthsBack = 12) {
 
   return rows.map((r) => ({ label: r._id as string, amount: r.amount as number }));
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Compares spending so far in the current home month (or calendar month, if no home month
 // has been started) against the average of the previous three periods, scaled by elapsed time.
@@ -222,13 +226,7 @@ export async function getSpendingPace() {
     ? validPastTotals.reduce((s, t) => s + t, 0) / validPastTotals.length
     : 0;
 
-  // A calendar month's length is known; a home month's isn't until the next one starts,
-  // so estimate it from how long the previous periods lasted.
-  const periodLengthMs = current.isCustom
-    ? validPast.length
-      ? validPast.reduce((s, p) => s + (p.end.getTime() - p.start.getTime()), 0) / validPast.length
-      : 30 * DAY_MS
-    : current.end.getTime() - current.start.getTime();
+  const periodLengthMs = estimatedPeriodLengthMs(current, validPast);
   const elapsedFraction = Math.min(1, (now.getTime() - current.start.getTime()) / periodLengthMs);
 
   const expectedPace = avgPastPeriod * elapsedFraction;
@@ -243,40 +241,39 @@ export async function getSpendingPace() {
   };
 }
 
-export async function getNetWorthTrend(days = 30) {
+// Net worth at the end of each day in `range` (default: the last 30 days), capped at today.
+export async function getNetWorthTrend(range?: Range) {
   await connectDB();
-  const accounts = await Account.find({ isArchived: false }).lean();
-  const currentTotalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
-
   const now = appNow();
-  const dayStarts = Array.from({ length: days }, (_, i) => startOfDay(subDays(now, days - 1 - i)));
+  const today = startOfDay(now);
+  const start = startOfDay(range?.start ?? subDays(now, 29));
+  const endDay = startOfDay(range?.end && range.end < now ? range.end : now);
+  if (start > endDay) return [];
 
-  const dailyNets = await Promise.all(
-    dayStarts.map(async (dayStart) => {
-      const dayEnd = endOfDay(dayStart);
-      const [incomeAgg, expenseAgg] = await Promise.all([
-        Transaction.aggregate([
-          { $match: { type: "income", date: { $gte: dayStart, $lte: dayEnd } } },
-          { $group: { _id: null, total: { $sum: "$amount" } } },
-        ]),
-        Transaction.aggregate([
-          { $match: { type: "expense", date: { $gte: dayStart, $lte: dayEnd } } },
-          { $group: { _id: null, total: { $sum: "$amount" } } },
-        ]),
-      ]);
-      return (incomeAgg[0]?.total ?? 0) - (expenseAgg[0]?.total ?? 0);
-    })
-  );
+  const [accounts, dailyRows] = await Promise.all([
+    Account.find({ isArchived: false }).lean(),
+    Transaction.aggregate([
+      { $match: { type: { $in: ["income", "expense"] }, date: { $gte: start } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          net: { $sum: { $cond: [{ $eq: ["$type", "income"] }, "$amount", { $multiply: ["$amount", -1] }] } },
+        },
+      },
+    ]),
+  ]);
+  const netByDay = new Map<string, number>(dailyRows.map((r) => [r._id as string, r.net as number]));
 
   // Walk backward from today's actual balance, undoing each day's net income/expense effect.
   // Transfers and ATM withdrawals move money between the user's own accounts, so they net to
   // zero and don't need to be considered here.
-  const points: { date: string; label: string; netWorth: number }[] = new Array(days);
-  let runningBalance = currentTotalBalance;
-  for (let i = days - 1; i >= 0; i--) {
-    points[i] = { date: format(dayStarts[i], "yyyy-MM-dd"), label: format(dayStarts[i], "MMM d"), netWorth: runningBalance };
-    runningBalance -= dailyNets[i];
+  let runningBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const points: { date: string; label: string; netWorth: number }[] = [];
+  for (let day = today; day >= start; day = subDays(day, 1)) {
+    const key = format(day, "yyyy-MM-dd");
+    if (day <= endDay) points.push({ date: key, label: format(day, "MMM d"), netWorth: runningBalance });
+    runningBalance -= netByDay.get(key) ?? 0;
   }
 
-  return points;
+  return points.reverse();
 }

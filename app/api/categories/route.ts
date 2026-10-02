@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const category = await createCategory(parsed.data);
-  return NextResponse.json(category, { status: 201 });
+  try {
+    const category = await createCategory(parsed.data);
+    return NextResponse.json(category, { status: 201 });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+  }
 }

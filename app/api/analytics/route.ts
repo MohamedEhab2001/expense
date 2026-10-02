@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCategoryBreakdown, getMonthlyTrend } from "@/lib/services/analyticsService";
+import { rangeFromParams } from "@/lib/utils/dates";
 
 export async function GET(req: NextRequest) {
-  const month = req.nextUrl.searchParams.get("month") ?? undefined;
+  const range = rangeFromParams(req.nextUrl.searchParams);
   const [categoryBreakdown, trend] = await Promise.all([
-    getCategoryBreakdown(month),
-    getMonthlyTrend(6),
+    getCategoryBreakdown(range),
+    getMonthlyTrend(6, range?.end),
   ]);
   return NextResponse.json({ categoryBreakdown, trend });
 }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNetWorthTrend } from "@/lib/services/analyticsService";
+import { rangeFromParams } from "@/lib/utils/dates";
 
 export async function GET(req: NextRequest) {
-  const days = Number(req.nextUrl.searchParams.get("days")) || 30;
-  const points = await getNetWorthTrend(Math.min(365, Math.max(7, days)));
+  const points = await getNetWorthTrend(rangeFromParams(req.nextUrl.searchParams));
   return NextResponse.json(points);
 }

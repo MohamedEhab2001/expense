@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMonthlyBudgetStatus, upsertBudget, listUnbudgetedCategories } from "@/lib/services/budgetService";
+import { getMonthlyBudgetStatus, getBudgetPeriod, upsertBudget, listUnbudgetedCategories } from "@/lib/services/budgetService";
 import { upsertBudgetSchema } from "@/lib/validation/budget";
-import { getCurrentPeriod } from "@/lib/services/cycleService";
 
 export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month") ?? undefined;
   const [budgets, unbudgeted, period] = await Promise.all([
     getMonthlyBudgetStatus(month),
     listUnbudgetedCategories(),
-    getCurrentPeriod(),
+    getBudgetPeriod(month),
   ]);
   return NextResponse.json({
     month,
-    periodStart: month ? undefined : period.start,
+    period,
     budgets,
     unbudgetedCategories: unbudgeted,
   });

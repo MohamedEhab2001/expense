@@ -69,13 +69,18 @@ export function CalculatorForm({
   // (0 if it has none) — editable inline for this run.
   const categoryDefaults = useMemo(() => {
     if (!budgetsData) return [];
-    const fromBudgets = budgetsData.budgets.map((b) => ({
+    // A budgeted parent already covers its subcategories, so leave those out to avoid
+    // planning the same spending twice.
+    const budgetedIds = new Set(budgetsData.budgets.map((b) => b.category._id));
+    const fromBudgets = budgetsData.budgets.filter((b) => b.countsTowardTotal).map((b) => ({
       categoryId: b.category._id,
       name: b.category.name,
       icon: b.category.icon ?? "tag",
       defaultAmount: b.budgeted,
     }));
-    const fromUnbudgeted = budgetsData.unbudgetedCategories.map((c) => ({
+    const fromUnbudgeted = budgetsData.unbudgetedCategories
+      .filter((c) => !c.parentId || !budgetedIds.has(c.parentId))
+      .map((c) => ({
       categoryId: c._id,
       name: c.name,
       icon: c.icon,

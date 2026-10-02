@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeftRight, Banknote, MapPin, MoreVertical, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Banknote, MapPin, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { getIcon } from "@/lib/icon-map";
 import { formatCents } from "@/lib/utils/currency";
 import {
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EditLocationDialog } from "@/components/transactions/EditLocationDialog";
+import { EditTransactionDialog } from "@/components/transactions/EditTransactionDialog";
 import type { TransactionDTO } from "@/lib/types";
 
 export function TransactionRow({
@@ -23,6 +24,7 @@ export function TransactionRow({
   onChanged?: () => void;
 }) {
   const [locationOpen, setLocationOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const isExpense = transaction.type === "expense";
   const isIncome = transaction.type === "income";
   const isMove = transaction.type === "transfer" || transaction.type === "atm_withdrawal";
@@ -51,34 +53,39 @@ export function TransactionRow({
 
   return (
     <div className="flex items-center gap-3 rounded-lg py-2.5 transition-colors active:bg-secondary/40">
-      <div
-        className="flex size-9 shrink-0 items-center justify-center rounded-full"
-        style={{ backgroundColor: `${color}26`, color }}
-      >
-        <Icon className="size-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{title}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {subtitle}
-          {transaction.note ? ` · ${transaction.note}` : ""}
-          {locationLabel ? ` · ${locationLabel}` : ""}
+      <button type="button" onClick={() => setEditOpen(true)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <div
+          className="flex size-9 shrink-0 items-center justify-center rounded-full"
+          style={{ backgroundColor: `${color}26`, color }}
+        >
+          <Icon className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{title}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {subtitle}
+            {transaction.note ? ` · ${transaction.note}` : ""}
+            {locationLabel ? ` · ${locationLabel}` : ""}
+          </p>
+        </div>
+        <p
+          className={
+            "tabular-nums text-sm font-semibold " +
+            (isExpense ? "text-destructive" : isIncome ? "text-success" : "text-foreground")
+          }
+        >
+          {isExpense ? "-" : isIncome ? "+" : ""}
+          {formatCents(transaction.amount)}
         </p>
-      </div>
-      <p
-        className={
-          "tabular-nums text-sm font-semibold " +
-          (isExpense ? "text-destructive" : isIncome ? "text-success" : "text-foreground")
-        }
-      >
-        {isExpense ? "-" : isIncome ? "+" : ""}
-        {formatCents(transaction.amount)}
-      </p>
+      </button>
       <DropdownMenu>
         <DropdownMenuTrigger className="flex size-7 items-center justify-center rounded-full text-muted-foreground active:bg-secondary">
           <MoreVertical className="size-3.5" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <Pencil className="size-4" /> Edit
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setLocationOpen(true)}>
             <MapPin className="size-4" /> {locationLabel ? "Edit location" : "Set location"}
           </DropdownMenuItem>
@@ -94,6 +101,16 @@ export function TransactionRow({
         onOpenChange={setLocationOpen}
         onSaved={() => onChanged?.()}
       />
+
+      {/* Mounted only while open so the form re-reads the transaction each time. */}
+      {editOpen && (
+        <EditTransactionDialog
+          transaction={transaction}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={() => onChanged?.()}
+        />
+      )}
     </div>
   );
 }
