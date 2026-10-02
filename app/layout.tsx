@@ -16,14 +16,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Me Tracker",
+  title: { default: "Tally", template: "%s · Tally" },
+  applicationName: "Tally",
   description: "Track spending, budgets, accounts, and savings goals.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Me Tracker",
+    title: "Tally",
   },
   icons: {
+    icon: [
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },
+    ],
     apple: "/icons/apple-touch-icon.png",
   },
 };

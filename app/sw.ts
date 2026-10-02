@@ -37,7 +37,7 @@ interface PushPayload {
 }
 
 self.addEventListener("push", (event: PushEvent) => {
-  let payload: PushPayload = { title: "Me Tracker", body: "You have a new notification." };
+  let payload: PushPayload = { title: "Tally", body: "You have a new notification." };
   try {
     if (event.data) payload = { ...payload, ...event.data.json() };
   } catch {

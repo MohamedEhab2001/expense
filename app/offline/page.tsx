@@ -8,7 +8,7 @@ export default function OfflinePage() {
       </div>
       <h1 className="text-lg font-semibold">You&apos;re offline</h1>
       <p className="max-w-xs text-sm text-muted-foreground">
-        Me Tracker needs a connection to load this page. Reconnect and try again.
+        Tally needs a connection to load this page. Reconnect and try again.
       </p>
     </div>
   );

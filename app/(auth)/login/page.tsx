@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Delete, Lock } from "lucide-react";
+import { Delete } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAX_LENGTH = 8;
@@ -50,10 +50,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-background px-6">
       <div className="flex flex-col items-center gap-3">
-        <div className="flex size-14 items-center justify-center rounded-full bg-primary/15">
-          <Lock className="size-6 text-primary" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/icon.svg" alt="" className="size-16 rounded-[22%] shadow-lg shadow-primary/20" />
+        <div className="flex flex-col items-center gap-1">
+          <h1 className="text-xl font-semibold tracking-tight">Tally</h1>
+          <p className="text-sm text-muted-foreground">Enter your passcode</p>
         </div>
-        <h1 className="text-lg font-semibold">Enter passcode</h1>
       </div>
 
       <div
