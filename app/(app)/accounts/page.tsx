@@ -21,8 +21,13 @@ export default function AccountsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccountDTO | undefined>(undefined);
 
+  // Credit cards are borrowed money, so they're left out of the total.
   const balancesByCurrency = accounts
-    ? groupByCurrency(accounts, (a) => a.currency, (a) => a.balance)
+    ? groupByCurrency(
+        accounts.filter((a) => a.type !== "credit_card"),
+        (a) => a.currency,
+        (a) => a.balance
+      )
     : [];
 
   async function archive(id: string) {

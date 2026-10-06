@@ -53,14 +53,17 @@ export async function getDashboardSummary() {
     )
     .slice(0, 3);
 
+  // Credit cards are borrowed money, not money you have, so they stay out of the balance totals.
+  const balanceAccounts = accounts.filter((a) => a.type !== "credit_card");
+
   // Note: these blended totals add up balances across currencies (e.g. EGP + USD
   // + grams of Gold) as if they were equivalent — there's no exchange-rate model
   // in this app. Use balancesByCurrency for anything that needs to be accurate.
-  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
-  const accountsExcludingSavings = accounts.filter((a) => a.type !== "savings");
+  const totalBalance = balanceAccounts.reduce((sum, a) => sum + a.balance, 0);
+  const accountsExcludingSavings = balanceAccounts.filter((a) => a.type !== "savings");
   const totalBalanceExcludingSavings = accountsExcludingSavings.reduce((sum, a) => sum + a.balance, 0);
 
-  const balancesByCurrency = groupByCurrency(accounts, (a) => a.currency, (a) => a.balance);
+  const balancesByCurrency = groupByCurrency(balanceAccounts, (a) => a.currency, (a) => a.balance);
   const balancesByCurrencyExcludingSavings = groupByCurrency(
     accountsExcludingSavings,
     (a) => a.currency,
