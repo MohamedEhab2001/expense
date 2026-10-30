@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Delete, Equal, Minus, Plus } from "lucide-react";
 import { DynamicIcon } from "@/lib/icon-map";
 import { formatCents } from "@/lib/utils/currency";
@@ -10,6 +10,27 @@ import type { CategoryBreakdownItemDTO, CategoryDTO } from "@/lib/types";
 
 type Op = "+" | "-";
 type Term = { op: Op; categoryId: string };
+type Formula = { terms: Term[]; pendingOp: Op | null; showResult: boolean };
+
+const FORMULA_KEY = "insights-category-formula";
+const EMPTY: Formula = { terms: [], pendingOp: null, showResult: false };
+
+function loadFormula(): Formula | null {
+  try {
+    const stored = localStorage.getItem(FORMULA_KEY);
+    return stored ? { ...EMPTY, ...JSON.parse(stored) } : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveFormula(formula: Formula) {
+  try {
+    localStorage.setItem(FORMULA_KEY, JSON.stringify(formula));
+  } catch {
+    // Storage can be unavailable (e.g. private mode); the formula just won't persist.
+  }
+}
 
 // Spending per category for the period; a parent's total includes its subcategories.
 function categoryTotals(items: CategoryBreakdownItemDTO[], categories: CategoryDTO[]) {
@@ -31,10 +52,21 @@ export function CategoryFormula({
   data: CategoryBreakdownItemDTO[];
   categories: CategoryDTO[];
 }) {
-  const [terms, setTerms] = useState<Term[]>([]);
-  // The operator chosen for the next term, set after a category has been added.
-  const [pendingOp, setPendingOp] = useState<Op | null>(null);
-  const [showResult, setShowResult] = useState(false);
+  // pendingOp is the operator chosen for the next term, set after a category has been added.
+  const [formula, setFormula] = useState<Formula>(EMPTY);
+  const { terms, pendingOp, showResult } = formula;
+
+  // Restore after mount to avoid a server/client hydration mismatch.
+  useEffect(() => {
+    const stored = loadFormula();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from localStorage, an external system, on mount
+    if (stored) setFormula(stored);
+  }, []);
+
+  function update(next: Formula) {
+    setFormula(next);
+    saveFormula(next);
+  }
 
   const totals = categoryTotals(items, categories);
   const spentIds = new Set(totals.keys());
@@ -47,27 +79,20 @@ export function CategoryFormula({
 
   function addCategory(categoryId: string) {
     if (!awaitingCategory) return;
-    setTerms((ts) => [...ts, { op: pendingOp ?? "+", categoryId }]);
-    setPendingOp(null);
-    setShowResult(false);
+    update({ terms: [...terms, { op: pendingOp ?? "+", categoryId }], pendingOp: null, showResult: false });
   }
 
   function chooseOp(op: Op) {
     if (terms.length === 0) return;
-    setPendingOp(op);
-    setShowResult(false);
+    update({ terms, pendingOp: op, showResult: false });
   }
 
   function backspace() {
-    if (pendingOp) setPendingOp(null);
-    else setTerms((ts) => ts.slice(0, -1));
-    setShowResult(false);
+    update({ terms: pendingOp ? terms : terms.slice(0, -1), pendingOp: null, showResult: false });
   }
 
   function clear() {
-    setTerms([]);
-    setPendingOp(null);
-    setShowResult(false);
+    update(EMPTY);
   }
 
   const canEvaluate = terms.length > 0 && pendingOp === null;
@@ -139,7 +164,7 @@ export function CategoryFormula({
         ))}
         <button
           type="button"
-          onClick={() => setShowResult(true)}
+          onClick={() => update({ terms, pendingOp, showResult: true })}
           disabled={!canEvaluate}
           aria-label="Equals"
           className="flex items-center justify-center rounded-lg bg-primary py-2 text-primary-foreground transition-all active:scale-95 disabled:opacity-40"
