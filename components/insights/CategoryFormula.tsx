@@ -10,10 +10,12 @@ import type { CategoryBreakdownItemDTO, CategoryDTO } from "@/lib/types";
 
 type Op = "+" | "-";
 type Term = { op: Op; categoryId: string };
-type Formula = { terms: Term[]; pendingOp: Op | null; showResult: boolean };
+// `level` picks which categories are listed to add; terms already added keep their own level.
+type Level = "groups" | "subcategories";
+type Formula = { terms: Term[]; pendingOp: Op | null; showResult: boolean; level: Level };
 
 const FORMULA_KEY = "insights-category-formula";
-const EMPTY: Formula = { terms: [], pendingOp: null, showResult: false };
+const EMPTY: Formula = { terms: [], pendingOp: null, showResult: false, level: "groups" };
 
 function loadFormula(): Formula | null {
   try {
@@ -44,6 +46,38 @@ function categoryTotals(items: CategoryBreakdownItemDTO[], categories: CategoryD
   return totals;
 }
 
+function ChipRow({
+  categories,
+  totals,
+  disabled,
+  onPick,
+}: {
+  categories: CategoryDTO[];
+  totals: Map<string, number>;
+  disabled: boolean;
+  onPick: (categoryId: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {categories.map((c) => (
+        <button
+          key={c._id}
+          type="button"
+          onClick={() => onPick(c._id)}
+          disabled={disabled}
+          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm text-muted-foreground transition-all active:scale-95"
+        >
+          <span style={{ color: c.color }}>
+            <DynamicIcon name={c.icon} className="size-3.5" />
+          </span>
+          {c.name}
+          <span className="tabular-nums text-xs opacity-70">{formatCents(totals.get(c._id) ?? 0)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Builds expressions like "Food + Transport − Rent" from category totals; "=" evaluates them.
 export function CategoryFormula({
   data: items,
@@ -54,7 +88,7 @@ export function CategoryFormula({
 }) {
   // pendingOp is the operator chosen for the next term, set after a category has been added.
   const [formula, setFormula] = useState<Formula>(EMPTY);
-  const { terms, pendingOp, showResult } = formula;
+  const { terms, pendingOp, showResult, level } = formula;
 
   // Restore after mount to avoid a server/client hydration mismatch.
   useEffect(() => {
@@ -72,6 +106,9 @@ export function CategoryFormula({
   const spentIds = new Set(totals.keys());
   const choices = categories.filter((c) => c.kind === "expense" && (!c.isArchived || spentIds.has(c._id)));
   const groups = groupCategories(choices);
+  const hasSubcategories = groups.some((g) => g.children.length > 0);
+  const standalone = groups.filter((g) => g.children.length === 0).map((g) => g.category);
+  const parents = groups.filter((g) => g.children.length > 0);
   const byId = new Map(categories.map((c) => [c._id, c]));
 
   const awaitingCategory = terms.length === 0 || pendingOp !== null;
@@ -79,20 +116,20 @@ export function CategoryFormula({
 
   function addCategory(categoryId: string) {
     if (!awaitingCategory) return;
-    update({ terms: [...terms, { op: pendingOp ?? "+", categoryId }], pendingOp: null, showResult: false });
+    update({ ...formula, terms: [...terms, { op: pendingOp ?? "+", categoryId }], pendingOp: null, showResult: false });
   }
 
   function chooseOp(op: Op) {
     if (terms.length === 0) return;
-    update({ terms, pendingOp: op, showResult: false });
+    update({ ...formula, pendingOp: op, showResult: false });
   }
 
   function backspace() {
-    update({ terms: pendingOp ? terms : terms.slice(0, -1), pendingOp: null, showResult: false });
+    update({ ...formula, terms: pendingOp ? terms : terms.slice(0, -1), pendingOp: null, showResult: false });
   }
 
   function clear() {
-    update(EMPTY);
+    update({ ...EMPTY, level });
   }
 
   const canEvaluate = terms.length > 0 && pendingOp === null;
@@ -164,7 +201,7 @@ export function CategoryFormula({
         ))}
         <button
           type="button"
-          onClick={() => update({ terms, pendingOp, showResult: true })}
+          onClick={() => update({ ...formula, showResult: true })}
           disabled={!canEvaluate}
           aria-label="Equals"
           className="flex items-center justify-center rounded-lg bg-primary py-2 text-primary-foreground transition-all active:scale-95 disabled:opacity-40"
@@ -173,29 +210,45 @@ export function CategoryFormula({
         </button>
       </div>
 
+      {hasSubcategories && (
+        <div className="flex self-end rounded-full border border-border p-0.5 text-xs">
+          {(
+            [
+              { value: "groups", label: "Groups" },
+              { value: "subcategories", label: "Subcategories" },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => update({ ...formula, level: o.value })}
+              className={cn(
+                "rounded-full px-2.5 py-1 font-medium transition-colors",
+                level === o.value ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className={cn("flex flex-col gap-3 transition-opacity", !awaitingCategory && "opacity-40")}>
-        {groups.map(({ category, children }) => (
-          <div key={category._id} className="flex flex-wrap gap-2">
-            {[category, ...children].map((c) => (
-              <button
-                key={c._id}
-                type="button"
-                onClick={() => addCategory(c._id)}
-                disabled={!awaitingCategory}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm transition-all active:scale-95",
-                  c === category && children.length > 0 ? "font-medium text-foreground" : "text-muted-foreground"
-                )}
-              >
-                <span style={{ color: c.color }}>
-                  <DynamicIcon name={c.icon} className="size-3.5" />
-                </span>
-                {c.name}
-                <span className="tabular-nums text-xs opacity-70">{formatCents(totals.get(c._id) ?? 0)}</span>
-              </button>
+        {level === "groups" || !hasSubcategories ? (
+          <ChipRow categories={groups.map((g) => g.category)} totals={totals} disabled={!awaitingCategory} onPick={addCategory} />
+        ) : (
+          <>
+            {standalone.length > 0 && (
+              <ChipRow categories={standalone} totals={totals} disabled={!awaitingCategory} onPick={addCategory} />
+            )}
+            {parents.map(({ category, children }) => (
+              <div key={category._id} className="flex flex-col gap-1.5">
+                <p className="text-xs font-medium text-muted-foreground">{category.name}</p>
+                <ChipRow categories={children} totals={totals} disabled={!awaitingCategory} onPick={addCategory} />
+              </div>
             ))}
-          </div>
-        ))}
+          </>
+        )}
       </div>
     </div>
   );
