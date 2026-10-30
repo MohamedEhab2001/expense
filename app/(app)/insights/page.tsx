@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CategoryBreakdownChart } from "@/components/insights/CategoryBreakdownChart";
+import { CategoryFormula } from "@/components/insights/CategoryFormula";
 import { TrendChart } from "@/components/insights/TrendChart";
 import { ExpensePeriodSummary } from "@/components/insights/ExpensePeriodSummary";
 import { LocationBreakdownChart } from "@/components/insights/LocationBreakdownChart";
@@ -47,6 +48,15 @@ export default function InsightsPage() {
           <Skeleton className="h-32 w-full rounded-xl" />
         ) : (
           <CategoryBreakdownChart data={analytics.categoryBreakdown} categories={categories ?? []} />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">Category formula · {rangeLabel}</p>
+        {!analytics || analyticsLoading ? (
+          <Skeleton className="h-40 w-full rounded-xl" />
+        ) : (
+          <CategoryFormula data={analytics.categoryBreakdown} categories={categories ?? []} />
         )}
       </section>
 
